@@ -35,7 +35,8 @@ CMWT::CMWT()
 ********************************************************************/ 
 void CMWT::Core_Main()
 {
-  generatePsgFlow();          //产生乘客交通流
+  //generatePsgFlow();          //产生乘客交通流
+  testPsgFlow();
   generateElevatorVec();      //产生电梯群
 
   while ( !isAlgFinished() )  //所有人是否都已经到达目的层        
@@ -114,11 +115,20 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
   for( CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
   {  
     tarVal = i->trytoDispatch(reqIter);
-    if ( tarVal.m_fWaitTime < MintargetVal.m_fWaitTime )
+    if ( tarVal.m_fWaitTime != 0 )
+    {
+      if ( tarVal.m_fWaitTime < MintargetVal.m_fWaitTime )
+      {
+        bestElvtIter = i;
+        MintargetVal = tarVal;
+      }
+    }
+    else
     {
       bestElvtIter = i;
-      MintargetVal = tarVal;
+      break;
     }
+
   }
 
   fprintf(m_AlgFile.m_OutputFilePtr, "fitness:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
@@ -137,9 +147,12 @@ void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
   sRunItemIterator indIter;
 
   runInd.m_eReqType = OUT_REQ;
-  runInd.m_eElvDir  = reqIter->m_eReqDir;
   runInd.m_iDestFlr = reqIter->m_iReqCurFlr;
   runInd.m_iBatch   = gBatch;
+  if ( reqIter->m_iReqCurFlr == elvtIter->m_iCurFlr )
+    runInd.m_eElvDir = DIR_NONE;
+  else
+    runInd.m_eElvDir  =( reqIter->m_iReqCurFlr > elvtIter->m_iCurFlr ) ? DIR_UP : DIR_DOWN;
 
   elvtIter->insertRunTableItem( runInd );       //将外部呼号请求推送给电梯
 }
@@ -167,6 +180,8 @@ void CMWT::onClickOutBtn(sPassengerIterator& psg)
     return;
   else
     insertElement( m_outReqVec, out_req );
+
+  sortElement( m_outReqVec, out_req );     //根据请求楼层进行排序
 }
 
 /********************************************************************

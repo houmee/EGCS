@@ -165,9 +165,6 @@ void CElevator::updateRunInfo()
     if ( m_dNextStateTime != gSystemTime && m_eCurState != IDLE )
       fprintf(m_ElvtFile.m_OutputFilePtr, "\nupdateRunInfo:sysTime(%.2f)-Elvt(%d)-CurFlr(%2d)-CurState(%d)-NextStateTime(%.2f)\n",gSystemTime,m_iElvtID,m_iCurFlr,m_eCurState,m_dNextStateTime);	
   }
-
-  if (m_sRunTable.size() > 0)
-    m_lastRunIndex = m_sRunTable[0];
 }
 
 /********************************************************************
@@ -178,12 +175,13 @@ void CElevator::updateRunInfo()
 void CElevator::gotoNextDest()
 {
 
-  //保存上一停靠的状态
-  if ( m_sRunTable.size() > 0 )
-  {
-    m_dLastStateTime = m_dNextStateTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
-    m_dCurRunDis = 0;
+  m_dLastStateTime = m_dNextStateTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
 
+  //保存上一停靠的状态
+  if ( m_iCurFlr == m_sRunTable[0].m_iDestFlr && m_sRunTable.size() > 0 )
+  {
+    m_lastRunIndex = m_sRunTable[0];
+    m_dCurRunDis = 0;
     sRunItemIterator deleteIter = find( m_sRunTable.begin(), m_sRunTable.end(), m_lastRunIndex );;
     m_sRunTable.erase( deleteIter );
   }
@@ -216,34 +214,46 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
 {
   sRunItem reqRunInd;
   sRunItemIterator tarInd;
-  sTargetVal tarVal = {0,0};
+  sTargetVal tarVal = {0,0}, tmpTarVal={0,0};
 
   //将外部请求封装为运行表项，获取从当前位置到请求的目标值
-  reqRunInd.m_eElvDir  = ( reqIter->m_iReqDestFlr > m_iCurFlr) ? DIR_UP : DIR_DOWN;
+  if ( reqIter->m_iReqCurFlr == m_iCurFlr )
+    reqRunInd.m_eElvDir = DIR_NONE;
+  else
+    reqRunInd.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
+
   reqRunInd.m_eReqType = OUT_REQ;
   reqRunInd.m_iDestFlr = reqIter->m_iReqCurFlr;
   reqRunInd.m_iBatch   = gBatch;
 
   //////////////////////////////////////////////////////////////////////////
   //求插入后的代价值
-  insertRunTableItem( reqRunInd );  //插入当前运行表同时更新表的各项目标值
-
   tarInd  = queryElement( m_sRunTable,reqRunInd,tarInd );
-  for( sRunItemIterator i=m_sRunTable.begin(); i != tarInd; ++i )   
+  if ( tarInd == m_sRunTable.end() )
   {
-    if ( i->m_iBatch == gBatch )
+    insertRunTableItem( reqRunInd );  //插入当前运行表同时更新表的各项目标值
+
+    tarInd  = queryElement( m_sRunTable,reqRunInd,tarInd );     //插入操作导致tarInd失效，重新查询
+    sRunItemIterator end = m_sRunTable.end();
+    
+    for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
     {
-      tarVal.m_fEnergy   += i->m_sTarVal.m_fEnergy;
-      tarVal.m_fWaitTime += i->m_sTarVal.m_fWaitTime;
+      if ( i <= tarInd )
+      {
+        tmpTarVal.m_fEnergy   += i->m_sTarVal.m_fEnergy;
+        tmpTarVal.m_fWaitTime += i->m_sTarVal.m_fWaitTime;
+
+        tarVal = tmpTarVal;
+      }
+      else
+      {
+        //tarVal.m_fEnergy   += tmpTarVal.m_fEnergy;  //MWT不考虑能耗
+        tarVal.m_fWaitTime += OPEN_CLOSE_TIME + PSG_ENTER_TIME;
+      }
     }
   }
-  
-  //循环只到tarInd前一位置
-  tarVal.m_fEnergy   += tarInd->m_sTarVal.m_fEnergy;
-  tarVal.m_fWaitTime += tarInd->m_sTarVal.m_fWaitTime;
 
   deleteRunTableItem( reqRunInd );
- 
   return tarVal;     //返回目标值
 }
 
@@ -325,7 +335,7 @@ sTargetVal CElevator::runfromXtoY(sRunItem x, sRunItem y)
   {
     if ( intervalFlr == 1 )
     {
-      targetVal.m_fWaitTime = ACCELERATE_TIME + DECELERATE_TIME + CONST_SPEED_TIME + OPEN_CLOSE_TIME;
+      targetVal.m_fWaitTime = ACCELERATE_TIME + DECELERATE_TIME + CONST_SPEED_TIME + OPEN_CLOSE_TIME+PSG_ENTER_TIME;
       targetVal.m_fEnergy   = START_STOP_ENERGY + GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
     }
     else if ( intervalFlr > 1 )
@@ -337,6 +347,11 @@ sTargetVal CElevator::runfromXtoY(sRunItem x, sRunItem y)
       targetVal.m_fEnergy = (GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*
         ((intervalFlr-2)*FLOOR_HEIGHT + 2*REMAIN_GAP_LENGTH) +START_STOP_ENERGY);
     }  
+  }
+  else
+  {
+    targetVal.m_fWaitTime = OPEN_CLOSE_TIME + PSG_ENTER_TIME;
+    targetVal.m_fEnergy   = 0;
   }
   return targetVal;
 }
@@ -465,32 +480,32 @@ void CElevator::getTaskPriority(sRunItem& ind)
 {
   //////////////////////////////////////////////////////////////////////////
   //电梯待机和上行的区别在于即使电梯所在楼层和请求楼层在一层，但是上行时已经启动，本次请求的优先级会很低
-  if ( m_eCurState == IDLE )    //如果电梯待机
+  if ( m_eCurState == IDLE )        //如果电梯待机
   {
     if ( ind.m_eElvDir == DIR_UP )
-      ind.m_iPriority = ind.m_iDestFlr >= m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
-    else if (ind.m_eElvDir == DIR_DOWN)
+      ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
+    else if (ind.m_eElvDir == DIR_DOWN )
       ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
     else
-      ind.m_iPriority = 0x7F;    //如果请求为NONE，则将优先数最大
+      ind.m_iPriority = 0;          //如果请求为NONE，说明就在本层，优先级最高
   }
   else if ( ELVT_UP(m_eCurState) )  //电梯上行
   {
     if ( ind.m_eElvDir == DIR_UP )
       ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
-    else if (ind.m_eElvDir == DIR_DOWN)
+    else if (ind.m_eElvDir == DIR_DOWN )
       ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
-    else
-      ind.m_iPriority = 0x7F;    //如果请求为NONE，则将优先数最大
+    else                            //如果请求为NONE，说明电梯上行刚过，优先级很低
+      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;    
   }
   else if ( ELVT_DOWN(m_eCurState) )
   {
-    if (ind.m_eElvDir == DIR_UP)
+    if (ind.m_eElvDir == DIR_UP )
       ind.m_iPriority = ind.m_iDestFlr;
-    else if (ind.m_eElvDir == DIR_DOWN)
+    else if (ind.m_eElvDir == DIR_DOWN )
       ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? -ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
     else
-      ind.m_iPriority = 0x7F;
+      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
   }
   else
     ind.m_iPriority = 0x7F;
@@ -508,7 +523,8 @@ void CElevator::showElevator(uint8 op)
   {  
     for (int i=0;i!=m_sRunTable.size();i++) 
     {
-      printf("DIR:%d--DEST_FLR:%d\n", m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr);
+      printf("showElevator:Elvt(%d)-ReqType(%d)-eElvDir(%d)-DestFlr(%d)\n",
+        m_iElvtID,m_sRunTable.at(i).m_eReqType,m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr);	
       fprintf(m_ElvtFile.m_OutputFilePtr, "showElevator:Elvt(%d)-ReqType(%d)-eElvDir(%d)-DestFlr(%d)\n",
         m_iElvtID,m_sRunTable.at(i).m_eReqType,m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr);	
     }

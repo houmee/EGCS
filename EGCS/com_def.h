@@ -157,12 +157,12 @@ typedef struct OutRequest
 
   bool operator <(const OutRequest& rhs) const // ÉýÐòÅÅÐòÊ±±ØÐëÐ´µÄº¯Êý
   {
-    return (m_iReqTime < rhs.m_iReqTime);
+    return (m_iReqCurFlr < rhs.m_iReqCurFlr);
   }
 
   bool operator >(const OutRequest& rhs) const // ½µÐòÅÅÐòÊ±±ØÐëÐ´µÄº¯Êý
   {
-    return (m_iReqTime > rhs.m_iReqTime);
+    return (m_iReqCurFlr > rhs.m_iReqCurFlr);
   }
 
   bool operator == (const OutRequest& rhs) const
