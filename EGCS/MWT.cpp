@@ -41,9 +41,8 @@ void CMWT::Core_Main()
 
   while ( !isAlgFinished() )  //所有人是否都已经到达目的层        
   {
-    fprintf(m_AlgFile.m_OutputFilePtr, "\nCore_Main:++++++\n");
     gSystemTime += SYSTEM_TIME_STEP;
-
+    fprintf(m_AlgFile.m_OutputFilePtr, "\n++++++++++++++++Core_Main:+++%.2f++++++++++++++++\n",gSystemTime);
     //外部请求部分
     processOuterReqFlow();    //处理外部请求
     schedule();               //将外部请求分派调度
@@ -62,7 +61,9 @@ void CMWT::Core_Main()
     }
   }
 
-  fprintf(m_AlgFile.m_OutputFilePtr, " Run successfully!\n");
+  printf("Run successfully!\n");
+  fprintf(m_AlgFile.m_OutputFilePtr, "Run successfully!\n");
+  getchar();
 }
 
 /********************************************************************
@@ -155,6 +156,8 @@ void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
     runInd.m_eElvDir  =( reqIter->m_iReqCurFlr > elvtIter->m_iCurFlr ) ? DIR_UP : DIR_DOWN;
 
   elvtIter->insertRunTableItem( runInd );       //将外部呼号请求推送给电梯
+  elvtIter->changeNextStop();
+  elvtIter->showElevator(1);
 }
 
 /********************************************************************

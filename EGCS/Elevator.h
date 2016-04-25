@@ -66,7 +66,7 @@ public:
   ~CElevator(){};        // Îö¹¹º¯Êý
   
   void Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec);
-  void getElevatorInfo();
+  void changeNextStop();
   void gotoNextDest();
   void onClickInnerBtn(sPassengerIterator& psg);
   void initELevator(int id, CTools& tools);

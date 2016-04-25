@@ -81,6 +81,14 @@ void CAlgInterface::testPsgFlow()
   insertElement( m_passengerVec, psg8 );
   sPassengerInfo psg9 = {9, 4, 7, DIR_UP  , 3.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
   insertElement( m_passengerVec, psg9 );
+
+  //////////////////////////////////////////////////////////////////////////
+  //²âÊÔ½Å±¾
+  sPassengerIterator psgIterEnd = m_passengerVec.end();
+  for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
+  {
+    fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_dReqTime);	
+  }
 }
 
 /********************************************************************

@@ -228,7 +228,7 @@ typedef struct RunItem
 
   bool operator == (const RunItem& rhs) 
   {
-    return (( m_eReqType == rhs.m_eReqType ) && (m_iDestFlr == rhs.m_iDestFlr) && (m_eElvDir == rhs.m_eElvDir));
+    return (m_iDestFlr == rhs.m_iDestFlr);
   }
 }sRunItem;
 

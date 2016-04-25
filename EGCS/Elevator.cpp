@@ -67,6 +67,7 @@ void CElevator::initELevator(int id, CTools& tools)
 ********************************************************************/ 
 void CElevator::Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec)
 {
+  fprintf(m_ElvtFile.m_OutputFilePtr, "\n--Elvt(%d) Main--\n", m_iElvtID);
   updateRunInfo();
 
   if ( ELVT_STOP(m_eCurState) )
@@ -74,17 +75,6 @@ void CElevator::Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec)
     processInnerPsgFlow(psgVec);
     gotoNextDest();
   }
-}
-
-
-/********************************************************************
-*  @name     : CElevator::getElevatorInfo    
-*  @brief    : 
-*  @return   : void
-********************************************************************/ 
-void CElevator::getElevatorInfo()
-{
-
 }
 
 /********************************************************************
@@ -161,10 +151,8 @@ void CElevator::updateRunInfo()
       m_dNextStateTime = gSystemTime;
       m_dLastStateTime = gSystemTime;
     }
-
-    if ( m_dNextStateTime != gSystemTime && m_eCurState != IDLE )
-      fprintf(m_ElvtFile.m_OutputFilePtr, "\nupdateRunInfo:sysTime(%.2f)-Elvt(%d)-CurFlr(%2d)-CurState(%d)-NextStateTime(%.2f)\n",gSystemTime,m_iElvtID,m_iCurFlr,m_eCurState,m_dNextStateTime);	
   }
+  fprintf(m_ElvtFile.m_OutputFilePtr, "updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_dLastStateTime,m_dNextStateTime);	
 }
 
 /********************************************************************
@@ -174,24 +162,24 @@ void CElevator::updateRunInfo()
 ********************************************************************/ 
 void CElevator::gotoNextDest()
 {
-
   m_dLastStateTime = m_dNextStateTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
 
   //保存上一停靠的状态
-  if ( m_iCurFlr == m_sRunTable[0].m_iDestFlr && m_sRunTable.size() > 0 )
+  if ( m_sRunTable.size() > 0 && m_iCurFlr == m_sRunTable.at(0).m_iDestFlr )
   {
     m_lastRunIndex = m_sRunTable[0];
     m_dCurRunDis = 0;
-    sRunItemIterator deleteIter = find( m_sRunTable.begin(), m_sRunTable.end(), m_lastRunIndex );;
+    sRunItemIterator deleteIter = find( m_sRunTable.begin(), m_sRunTable.end(), m_lastRunIndex );
+    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: delete item-ReqType(%d)-DestFlr(%d)\n", deleteIter->m_eReqType, deleteIter->m_iDestFlr);	
     m_sRunTable.erase( deleteIter );
   }
 
   if ( m_sRunTable.size() > 0 )
   {
-    m_iNextStopFlr   = m_sRunTable[0].m_iDestFlr;
+    m_iNextStopFlr   = m_sRunTable.at(0).m_iDestFlr;
     m_eCurState      = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
     m_eRundir        = m_iNextStopFlr > m_iCurFlr ? DIR_UP : DIR_DOWN;
-    m_dNextStateTime = m_sRunTable[0].m_sTarVal.m_fWaitTime + gSystemTime;
+    m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
   }
   else
   {
@@ -200,8 +188,32 @@ void CElevator::gotoNextDest()
     m_eRundir         = DIR_NONE;
   }
 
+  fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
   showElevator(1);  
-  fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:Elvt(%d)-NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iElvtID,m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
+}
+
+
+/********************************************************************
+*  @name     : CElevator::getElevatorInfo    
+*  @brief    : 
+*  @return   : void
+********************************************************************/ 
+void CElevator::changeNextStop()
+{
+  int tmpFlr;
+  double tmpTime;
+
+  if ( m_sRunTable.size() > 0 )
+  {
+    if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )
+    {
+      tmpFlr = m_iNextStopFlr;
+      tmpTime = m_dNextStateTime;
+      m_iNextStopFlr   = m_sRunTable.at(0).m_iDestFlr;
+      m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
+      fprintf(m_ElvtFile.m_OutputFilePtr, "changeNextStop:Elvt(%d)-NextStopFlr(%2d)->(%2d)---NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpFlr,m_iNextStopFlr,tmpTime,m_dNextStateTime);
+    }
+  }
 }
 
 /********************************************************************
@@ -277,6 +289,7 @@ void CElevator::onClickInnerBtn(sPassengerIterator& psg)
     int a = 0;
   }
   insertRunTableItem( runInd );
+  changeNextStop();
   fprintf(m_ElvtFile.m_OutputFilePtr, "onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runInd.m_iDestFlr,runInd.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
 }
 
@@ -316,7 +329,9 @@ void CElevator::processInnerPsgFlow(sPassengerInfoVec& psgVec)
         }
     }
   }
-  
+
+  fprintf(m_ElvtFile.m_OutputFilePtr, "processInnerPsgFlow:\n");
+  showElevator(1);
 }
 
 /********************************************************************
@@ -369,7 +384,7 @@ void CElevator::psgLeave(sPassengerIterator& psg)
   psg->m_ePsgState = PSG_ARRIVE;
   psg->m_dAllTime = gSystemTime - psg->m_dReqTime;
   psg->m_iCurPlace = PSG_ARRIVE_PLACE;
-  fprintf(m_ElvtFile.m_OutputFilePtr, "psgEnter:Psg(%2d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
+  fprintf(m_ElvtFile.m_OutputFilePtr, "psgLeave:Psg(%2d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
 }
 
 /********************************************************************
@@ -523,10 +538,10 @@ void CElevator::showElevator(uint8 op)
   {  
     for (int i=0;i!=m_sRunTable.size();i++) 
     {
-      printf("showElevator:Elvt(%d)-ReqType(%d)-eElvDir(%d)-DestFlr(%d)\n",
-        m_iElvtID,m_sRunTable.at(i).m_eReqType,m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr);	
-      fprintf(m_ElvtFile.m_OutputFilePtr, "showElevator:Elvt(%d)-ReqType(%d)-eElvDir(%d)-DestFlr(%d)\n",
-        m_iElvtID,m_sRunTable.at(i).m_eReqType,m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr);	
+      //printf("showElevator:Elvt(%d)-ReqType(%d)-eElvDir(%d)-DestFlr(%d)\n",
+      //  m_iElvtID,m_sRunTable.at(i).m_eReqType,m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr);	
+      fprintf(m_ElvtFile.m_OutputFilePtr, "showElevator:ReqType(%d)-eElvDir(%d)-DestFlr(%d)-Time(%.2f)\n",
+        m_sRunTable.at(i).m_eReqType,m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr,m_sRunTable.at(i).m_sTarVal.m_fWaitTime);	
     }
   }
 }
