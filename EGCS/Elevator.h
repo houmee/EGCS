@@ -52,8 +52,9 @@ public:
   uint8             m_iNextStopFlr;   //下一停靠楼层
   double            m_dCurRunDis;     //距离上一停靠楼层移动距离
   uint8             m_iCurPsgNum;     //当前乘客数目
-  RunDir           m_eRundir;
+  RunDir            m_eRundir;
   ElvtRunState      m_eCurState;      //当前状态
+  double            m_dStartTime;
   double            m_dLastStateTime;
   double            m_dNextStateTime; //电梯下一状态时间
   bool              m_isSchedule;     //是否被调度

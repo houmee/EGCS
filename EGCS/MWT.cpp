@@ -149,7 +149,6 @@ void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
 
   runInd.m_eReqType = OUT_REQ;
   runInd.m_iDestFlr = reqIter->m_iReqCurFlr;
-  runInd.m_iBatch   = gBatch;
   if ( reqIter->m_iReqCurFlr == elvtIter->m_iCurFlr )
     runInd.m_eElvDir = DIR_NONE;
   else

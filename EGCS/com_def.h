@@ -215,7 +215,6 @@ typedef struct RunItem
   RunDir		  m_eElvDir;         //运行方向
   uint8       m_iDestFlr;        //运行目的层
   sTargetVal  m_sTarVal;
-  uint8       m_iBatch;
 
   bool operator <(const RunItem& rhs) const // 升序排序时必须写的函数
   {
@@ -228,7 +227,7 @@ typedef struct RunItem
 
   bool operator == (const RunItem& rhs) 
   {
-    return (m_iDestFlr == rhs.m_iDestFlr);
+    return ( m_iDestFlr == rhs.m_iDestFlr );
   }
 }sRunItem;
 
