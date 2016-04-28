@@ -167,6 +167,7 @@ void CElevator::updateRunInfo()
 ********************************************************************/ 
 void CElevator::gotoNextDest()
 {
+  sRunItemIterator tarInd;
   m_dLastStateTime = m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
 
   //保存上一停靠的状态
@@ -175,9 +176,10 @@ void CElevator::gotoNextDest()
     m_lastRunIndex = m_sRunTable[0];
     m_dCurRunDis = 0;
     m_dStartTime = m_dNextStateTime;
-    sRunItemIterator deleteIter = find( m_sRunTable.begin(), m_sRunTable.end(), m_lastRunIndex );
-    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: Delete item-ReqType(%d)-DestFlr(%d)\n", deleteIter->m_eReqType, deleteIter->m_iDestFlr);	
-    m_sRunTable.erase( deleteIter );
+
+    tarInd = queryElement( m_sRunTable,m_lastRunIndex,tarInd );  
+    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: Delete item-ReqType(%d)-DestFlr(%d)\n", tarInd->m_eReqType, tarInd->m_iDestFlr);	
+    deleteRunTableItem( m_lastRunIndex );
   }
 
   fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
@@ -201,18 +203,19 @@ void CElevator::changeNextStop()
     {
       tmpFlr = m_iNextStopFlr;
       tmpTime = m_dNextStateTime;
-      m_iNextStopFlr   = m_sRunTable.at(0).m_iDestFlr;
-      m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
 
       if ( m_iNextStopFlr == m_iCurFlr )
       {
-        m_eCurState = IDLE;
-        m_eRundir   = DIR_NONE;
+        m_dNextStateTime = gSystemTime;
+        m_eCurState      = IDLE;
+        m_eRundir        = DIR_NONE;
       }
       else
       {
-        m_eCurState = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
-        m_eRundir   = m_iNextStopFlr > m_iCurFlr ? DIR_UP : DIR_DOWN;
+        m_iNextStopFlr   = m_sRunTable.at(0).m_iDestFlr;
+        m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
+        m_eCurState      = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
+        m_eRundir        = m_iNextStopFlr > m_iCurFlr ? DIR_UP : DIR_DOWN;
       }  
 
       fprintf(m_ElvtFile.m_OutputFilePtr, "changeNextStop:Elvt(%d)-NextStopFlr(%2d)->(%2d)---NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpFlr,m_iNextStopFlr,tmpTime,m_dNextStateTime);
