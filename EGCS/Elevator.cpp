@@ -36,12 +36,12 @@ CElevator::CElevator()
   m_canHandle     = false;
   m_sRunTable.reserve(MAX_FLOOR_NUM);
 
-  m_lastRunIndex.m_eElvDir              = DIR_NONE;
-  m_lastRunIndex.m_eReqType             = IN_REQ;
-  m_lastRunIndex.m_iDestFlr             = 1;
-  m_lastRunIndex.m_iPriority            = 0x7F;
-  m_lastRunIndex.m_sTarVal.m_fEnergy    = 0;
-  m_lastRunIndex.m_sTarVal.m_fWaitTime  = 0;
+  m_lastRunItem.m_eElvDir              = DIR_NONE;
+  m_lastRunItem.m_eReqType             = IN_REQ;
+  m_lastRunItem.m_iDestFlr             = 1;
+  m_lastRunItem.m_iPriority            = 0x7F;
+  m_lastRunItem.m_sTarVal.m_fEnergy    = 0;
+  m_lastRunItem.m_sTarVal.m_fWaitTime  = 0;
 
   showElevator(1);
 }
@@ -123,12 +123,12 @@ void CElevator::updateRunInfo()
     else if( m_eCurState == UP_CONST || m_eCurState == DOWN_CONST )
       m_dCurRunDis = (double)( runTime - ACCELERATE_TIME )*RUN_SPEED + ACCELERATE_LENGTH;
     else if ( m_eCurState == UP_DEC || m_eCurState == DOWN_DEC )
-      m_dCurRunDis = abs(m_lastRunIndex.m_iDestFlr - m_iNextStopFlr)*FLOOR_HEIGHT-(double)remainTime/DECELERATE_TIME*DECELERATE_LENGTH;
+      m_dCurRunDis = abs(m_lastRunItem.m_iDestFlr - m_iNextStopFlr)*FLOOR_HEIGHT-(double)remainTime/DECELERATE_TIME*DECELERATE_LENGTH;
 
     if ( ELVT_UP(m_eCurState) )
-      m_iCurFlr = (uint8)(m_dCurRunDis / FLOOR_HEIGHT) + m_lastRunIndex.m_iDestFlr;
+      m_iCurFlr = (uint8)(m_dCurRunDis / FLOOR_HEIGHT) + m_lastRunItem.m_iDestFlr;
     else if ( ELVT_DOWN(m_eCurState) )
-      m_iCurFlr = m_lastRunIndex.m_iDestFlr - (uint8)(m_dCurRunDis / FLOOR_HEIGHT);
+      m_iCurFlr = m_lastRunItem.m_iDestFlr - (uint8)(m_dCurRunDis / FLOOR_HEIGHT);
 
     if ( m_iCurFlr > MAX_FLOOR_NUM )
       m_iCurFlr = MAX_FLOOR_NUM;
@@ -173,13 +173,13 @@ void CElevator::gotoNextDest()
   //保存上一停靠的状态
   if ( m_sRunTable.size() > 0 && m_iCurFlr == m_sRunTable.at(0).m_iDestFlr )
   {
-    m_lastRunIndex = m_sRunTable[0];
+    m_lastRunItem = m_sRunTable[0];
     m_dCurRunDis = 0;
     m_dStartTime = m_dNextStateTime;
 
-    tarInd = queryElement( m_sRunTable,m_lastRunIndex,tarInd );  
+    tarInd = queryElement( m_sRunTable,m_lastRunItem,tarInd );  
     fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: Delete item-ReqType(%d)-DestFlr(%d)\n", tarInd->m_eReqType, tarInd->m_iDestFlr);	
-    deleteRunTableItem( m_lastRunIndex );
+    deleteRunTableItem( m_lastRunItem );
   }
 
   fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
@@ -199,16 +199,21 @@ void CElevator::changeNextStop()
 
   if ( m_sRunTable.size() > 0 )
   {
-    if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )
+    if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )   //destFlr 一定小于nextStopFlr
     {
       tmpFlr = m_iNextStopFlr;
       tmpTime = m_dNextStateTime;
 
-      if ( m_iNextStopFlr == m_iCurFlr )
+      if ( m_sRunTable.at(0).m_iDestFlr == m_iCurFlr )
       {
         m_dNextStateTime = gSystemTime;
-        m_eCurState      = IDLE;
-        m_eRundir        = DIR_NONE;
+        m_eRundir = DIR_NONE;
+        if ( m_lastRunItem.m_eElvDir == DIR_UP )
+          m_eCurState = UP_PAUSE;
+        else if ( m_lastRunItem.m_eElvDir == DIR_DOWN )
+          m_eCurState = DOWN_PAUSE;
+        else
+          m_eCurState = IDLE;
       }
       else
       {
@@ -328,18 +333,16 @@ void CElevator::processInnerPsgFlow(sPassengerInfoVec& psgVec)
     }
   }
 
-  if ( m_sRunTable.size() > 0 )
+
+  for( sPassengerIterator i=psgVec.begin(); i != psgIterEnd;  ++i )
   {
-    for( sPassengerIterator i=psgVec.begin(); i != psgIterEnd;  ++i )
-    {
-      //如果乘客处于等待中且当前电梯已经到达停靠
-      if (i->m_ePsgState == PSG_WAIT && i->m_iReqCurFlr == m_iCurFlr )
-        if (i->m_eReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM)
-        {
-          psgEnter(i);
-          onClickInnerBtn(i);
-        }
-    }
+    //如果乘客处于等待中且当前电梯已经到达停靠
+    if (i->m_ePsgState == PSG_WAIT && i->m_iReqCurFlr == m_iCurFlr )
+      if (i->m_eReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM)
+      {
+        psgEnter(i);
+        onClickInnerBtn(i);
+      }
   }
 
   fprintf(m_ElvtFile.m_OutputFilePtr, "processInnerPsgFlow:\n");
@@ -429,7 +432,7 @@ void CElevator::updateRunTable()
     if ( i == m_sRunTable.begin() )
     {
       preRunInd = *i;
-      i->m_sTarVal = runfromXtoY( m_lastRunIndex, preRunInd );
+      i->m_sTarVal = runfromXtoY( m_lastRunItem, preRunInd );
     }
     else
     {
