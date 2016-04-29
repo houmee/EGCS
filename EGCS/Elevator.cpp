@@ -20,9 +20,9 @@
  * PUBLIC FUNCTIONS
  */
 
-CElevator::CElevator()
+CElevator::CElevator(int id, CTools& tools)
 {
-  m_iElvtID       = -1;
+  m_iElvtID       = id;
   m_iCurFlr       = 1;
   m_iNextStopFlr  = 1;
   m_dCurRunDis    = 0.0;
@@ -34,6 +34,8 @@ CElevator::CElevator()
   m_eRundir       = DIR_NONE;
   m_isSchedule    = false;
   m_canHandle     = false;
+  m_isTrytoDispatch = false;
+  m_ElvtFile        = tools;
   m_sRunTable.reserve(MAX_FLOOR_NUM);
 
   m_lastRunItem.m_eElvDir              = DIR_NONE;
@@ -42,24 +44,8 @@ CElevator::CElevator()
   m_lastRunItem.m_iPriority            = 0x7F;
   m_lastRunItem.m_sTarVal.m_fEnergy    = 0;
   m_lastRunItem.m_sTarVal.m_fWaitTime  = 0;
-
-  showElevator(1);
+  insertRunTableItem( m_lastRunItem );
 }
-
-
-
-/********************************************************************
-*  @name     : CElevator::initELevator    
-*  @brief    : 
-*  @param    : id 
-*  @return   : void
-********************************************************************/ 
-void CElevator::initELevator(int id, CTools& tools)
-{
-  m_iElvtID = id;
-  m_ElvtFile = tools;
-}
-
 
 /********************************************************************
 *  @name     : CElevator::Elevator_Main    
@@ -72,11 +58,14 @@ void CElevator::initELevator(int id, CTools& tools)
 void CElevator::Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec)
 {
   fprintf(m_ElvtFile.m_OutputFilePtr, "\n--Elvt(%d) Main--\n", m_iElvtID);
-  updateRunInfo();
+  fprintf(m_ElvtFile.m_OutputFilePtr, "updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_dLastStateTime,m_dNextStateTime);	
 
-  if ( ELVT_STOP(m_eCurState) )
+  //////////////////////////////////////////////////////////////////////////
+  //电梯运行主要部分
+  updateRunInfo();                //更新运行状态
+  if ( ELVT_STOP(m_eCurState) )   //电梯处于待机、停靠状态，处理乘客
   {
-    processInnerPsgFlow(psgVec);
+    processReqPsgFlow(psgVec);
     gotoNextDest();
   }
 }
@@ -91,8 +80,45 @@ void CElevator::updateRunInfo()
   uint16 runlen = 0;
   double runTime = 0, remainTime = 0;
 
-  if ( !ELVT_STOP(m_eCurState) )    //如果电梯没有待机中
-  {  
+  //////////////////////////////////////////////////////////////////////////
+  //由停止向运动变化
+  //状态变化：1.IDLE->IDLE         2.PAUSE->PAUSE     3.IDLE->ACC           4.PAUSE->ACC
+  //方向变化: 1.DIR_NONE->DIR_NONE 2.DIR_NONE->DIR_UP 3.DIR_NONE->DIR_DOWN
+  if ( ELVT_STOP(m_eCurState) ) //电梯在停止状态  
+  {
+    if ( gSystemTime >= m_dLastStateTime )    //超过了电梯开关门时间
+    {   
+      if ( m_iNextStopFlr != m_iCurFlr )      //如果下一停靠楼层不是当前楼层，更新状态和方向
+      {
+        m_eCurState = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
+        m_eRundir   = m_iNextStopFlr > m_iCurFlr ? DIR_UP : DIR_DOWN;
+      }
+      else                                    //如果下一停靠楼层是当前楼层，不改变状态和方向
+      {
+        if ( m_sRunTable.size() == 0 )        //如果没有任务，则将状态改为IDLE，断定此处电梯没有乘客
+        {
+          assert(m_iCurPsgNum == 0);
+          m_eCurState = IDLE;
+
+          m_dLastStateTime = gSystemTime;     //没有任务的时候将时间刷新
+          m_dNextStateTime = gSystemTime;
+        }
+        else if ( m_lastRunItem.m_iDestFlr > m_iCurFlr )
+          m_eCurState = DOWN_PAUSE;
+        else if ( m_lastRunItem.m_iDestFlr < m_iCurFlr )
+          m_eCurState = UP_PAUSE;
+        else
+          m_eCurState = IDLE;
+
+        m_eRundir   = DIR_NONE;
+      }
+    }
+  }
+
+  if ( ELVT_UP(m_eCurState) || ELVT_DOWN(m_eCurState) ) //如果电梯在运行中
+  { 
+    assert( gSystemTime >= m_dLastStateTime );
+
     runTime    = (gSystemTime >= m_dLastStateTime) ? (gSystemTime-(double)m_dLastStateTime) : 0 ;
     remainTime = (gSystemTime <= m_dNextStateTime) ? ((double)m_dNextStateTime-gSystemTime) : 0 ;
 
@@ -118,13 +144,15 @@ void CElevator::updateRunInfo()
         m_eCurState = DOWN_CONST;
     }
 
-    if ( m_eCurState == UP_ACC || m_eCurState == DOWN_ACC )
+    if ( m_eCurState == UP_ACC || m_eCurState == DOWN_ACC )           //向上（向下）加速状态
       m_dCurRunDis = (double)runTime/ACCELERATE_TIME*ACCELERATE_LENGTH;
-    else if( m_eCurState == UP_CONST || m_eCurState == DOWN_CONST )
+    else if( m_eCurState == UP_CONST || m_eCurState == DOWN_CONST )   //匀速状态
       m_dCurRunDis = (double)( runTime - ACCELERATE_TIME )*RUN_SPEED + ACCELERATE_LENGTH;
-    else if ( m_eCurState == UP_DEC || m_eCurState == DOWN_DEC )
+    else if ( m_eCurState == UP_DEC || m_eCurState == DOWN_DEC )      //向上（向下）加速状态
       m_dCurRunDis = abs(m_lastRunItem.m_iDestFlr - m_iNextStopFlr)*FLOOR_HEIGHT-(double)remainTime/DECELERATE_TIME*DECELERATE_LENGTH;
 
+    //////////////////////////////////////////////////////////////////////////
+    //根据上一停靠楼层、运行距离和运行方向确定电梯所在楼层
     if ( ELVT_UP(m_eCurState) )
       m_iCurFlr = (uint8)(m_dCurRunDis / FLOOR_HEIGHT) + m_lastRunItem.m_iDestFlr;
     else if ( ELVT_DOWN(m_eCurState) )
@@ -134,30 +162,27 @@ void CElevator::updateRunInfo()
       m_iCurFlr = MAX_FLOOR_NUM;
     if ( m_iCurFlr < 0 )
       m_iCurFlr = 0;
-  }
 
-  if ( gSystemTime > m_dNextStateTime )
-  {
-    if ( m_eCurState != IDLE )
+    //////////////////////////////////////////////////////////////////////////
+    //由运动向停止变化
+    if ( gSystemTime >= m_dNextStateTime )
     {
+      assert( m_iCurFlr == m_iNextStopFlr );
+
       if ( m_eRundir == DIR_UP )
+      {
+        assert( m_eCurState == UP_DEC );
+        m_eRundir = DIR_NONE;
         m_eCurState = UP_PAUSE;
+      }
       else if ( m_eRundir == DIR_DOWN )
+      {
+        assert( m_eCurState == DOWN_DEC );
+        m_eRundir = DIR_NONE;
         m_eCurState = DOWN_PAUSE;
-      else
-        m_eCurState = IDLE;
-
-      if ( m_iCurPsgNum == 0 && m_eCurState == DOWN_PAUSE || m_eCurState == UP_PAUSE )
-        m_eCurState = IDLE;
-    }
-    else
-    {
-      m_dNextStateTime = gSystemTime;
-      m_dLastStateTime = gSystemTime;
-      m_dStartTime     = gSystemTime;
+      }
     }
   }
-  fprintf(m_ElvtFile.m_OutputFilePtr, "updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_dLastStateTime,m_dNextStateTime);	
 }
 
 /********************************************************************
@@ -175,8 +200,8 @@ void CElevator::gotoNextDest()
   {
     tmp = m_lastRunItem;
     m_lastRunItem = m_sRunTable.at(0);
-    m_dCurRunDis = 0;
-    m_dStartTime = m_dNextStateTime;
+    m_dCurRunDis  = 0;
+    m_dStartTime  = m_dNextStateTime;
 
     fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest(LastItem):NextStopFlr(%2d)->(%2d)\n",tmp.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
 
@@ -189,7 +214,7 @@ void CElevator::gotoNextDest()
   m_dLastStateTime = m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
   
   fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
-  showElevator(1);  
+  showElevator();  
 }
 
 
@@ -202,43 +227,26 @@ void CElevator::changeNextStop()
 {
   int    tmpFlr;
   double tmpTime;
-
-  if ( m_sRunTable.size() > 0 )
+ 
+  if ( !m_isTrytoDispatch )         //只有在非TrytoDispatch操作时检查是否更新下一停靠楼层信息
   {
-    if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )   //destFlr优先级一定小于nextStopFlr
+    if ( m_sRunTable.size() > 0 )   //如果存在下一停靠楼层任务
     {
-      tmpFlr = m_iNextStopFlr;
-      tmpTime = m_dNextStateTime;
-
-      if ( m_sRunTable.at(0).m_iDestFlr == m_iCurFlr )
+      if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )   //下一停靠楼层信息需要更新
       {
-        m_dNextStateTime = gSystemTime;
-        m_eRundir = DIR_NONE;
-        if ( m_lastRunItem.m_eElvDir == DIR_UP )
-          m_eCurState = UP_PAUSE;
-        else if ( m_lastRunItem.m_eElvDir == DIR_DOWN )
-          m_eCurState = DOWN_PAUSE;
-        else
-          m_eCurState = IDLE;
-      }
-      else
-      {
-        m_lastRunItem = m_sRunTable.at(0);
+        tmpFlr = m_iNextStopFlr;
+        tmpTime = m_dNextStateTime;        
         m_iNextStopFlr   = m_sRunTable.at(0).m_iDestFlr;
         m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
-        m_eCurState      = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
-        m_eRundir        = m_iNextStopFlr > m_iCurFlr ? DIR_UP : DIR_DOWN;
-      }  
 
-      fprintf(m_ElvtFile.m_OutputFilePtr, "changeNextStop:Elvt(%d)-NextStopFlr(%2d)->(%2d)---NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpFlr,m_iNextStopFlr,tmpTime,m_dNextStateTime);
+        fprintf(m_ElvtFile.m_OutputFilePtr, "changeNextStop:Elvt(%d)-NextStopFlr(%2d)->(%2d)---NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpFlr,m_iNextStopFlr,tmpTime,m_dNextStateTime);
+      }
     }
-  }
-  else
-  {
-    m_iNextStopFlr    = m_iCurFlr;
-    m_eCurState       = IDLE;
-    m_eRundir         = DIR_NONE;
-    m_dNextStateTime  = gSystemTime;
+    else    //没有运行任务则停靠再最后一个任务的楼层
+    {
+      m_iNextStopFlr    = m_iCurFlr;
+      m_dNextStateTime  = gSystemTime;
+    }
   }
 }
 
@@ -263,6 +271,7 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
   reqRunItem.m_eReqType = OUT_REQ;
   reqRunItem.m_iDestFlr = reqIter->m_iReqCurFlr;
 
+  m_isTrytoDispatch = true;
   //////////////////////////////////////////////////////////////////////////
   //求插入后的代价值
   tarIter  = queryElement( m_sRunTable,reqRunItem,tarIter );
@@ -291,6 +300,9 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
   }
 
   deleteRunTableItem( reqRunItem );
+
+  m_isTrytoDispatch = false;
+
   return tarVal;     //返回目标值
 }
 
@@ -323,7 +335,7 @@ void CElevator::onClickInnerBtn(sPassengerIterator& psg)
 *  @param    : sPassengerInfoVec & psgVec 
 *  @return   : void
 ********************************************************************/ 
-void CElevator::processInnerPsgFlow(sPassengerInfoVec& psgVec)
+void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
 {
   sPassengerIterator psgIterEnd = psgVec.end();
 
@@ -353,7 +365,7 @@ void CElevator::processInnerPsgFlow(sPassengerInfoVec& psgVec)
   }
 
   fprintf(m_ElvtFile.m_OutputFilePtr, "processInnerPsgFlow:\n");
-  showElevator(1);
+  showElevator();
 }
 
 /********************************************************************
@@ -448,8 +460,6 @@ void CElevator::updateRunTable()
       preRunInd = *i;
     }
   }
-
-  changeNextStop();
 }
 
 /********************************************************************
@@ -461,6 +471,8 @@ void CElevator::updateRunTable()
 void CElevator::insertRunTableItem( sRunItem runInd )
 {
   sRunItemIterator indIter;
+
+  updateRunInfo();    //插入运行表项之前更新电梯状态
 
   if ( runInd.m_eReqType == IN_REQ )
   {
@@ -477,6 +489,7 @@ void CElevator::insertRunTableItem( sRunItem runInd )
         insertElement( m_sRunTable, runInd );
         sortElement( m_sRunTable, runInd );
         updateRunTable();
+        changeNextStop();
       }
     }
   }
@@ -490,6 +503,7 @@ void CElevator::insertRunTableItem( sRunItem runInd )
       insertElement( m_sRunTable, runInd );
       sortElement( m_sRunTable, runInd );
       updateRunTable();
+      changeNextStop();
     }
   }
  
@@ -507,6 +521,7 @@ void CElevator::deleteRunTableItem( sRunItem runInd )
   deleteElement( m_sRunTable,runInd,tarInd );
   sortElement( m_sRunTable, runInd );
   updateRunTable();
+  changeNextStop();
 }
 
 /********************************************************************
@@ -553,117 +568,17 @@ void CElevator::getTaskPriority(sRunItem& ind)
 /********************************************************************
 *  @name     : CElevator::showElevator    
 *  @brief    : 
-*  @param    : op 
 *  @return   : void
 ********************************************************************/ 
-void CElevator::showElevator(uint8 op)
+void CElevator::showElevator()
 {
-  if (op == 1)
-  {  
-    for (int i=0;i!=m_sRunTable.size();i++) 
-    {
-      //printf("showElevator:Elvt(%d)-ReqType(%d)-eElvDir(%d)-DestFlr(%d)\n",
-      //  m_iElvtID,m_sRunTable.at(i).m_eReqType,m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr);	
-      fprintf(m_ElvtFile.m_OutputFilePtr, "showElevator:ReqType(%d)-eElvDir(%d)-DestFlr(%d)-Time(%.2f)\n",
-        m_sRunTable.at(i).m_eReqType,m_sRunTable.at(i).m_eElvDir,m_sRunTable.at(i).m_iDestFlr,m_sRunTable.at(i).m_sTarVal.m_fWaitTime);	
-    }
+  sRunItemIterator end = m_sRunTable.end();
+  for( sRunItemIterator  i=m_sRunTable.begin(); i != end;  ++i )
+  {
+    fprintf(m_ElvtFile.m_OutputFilePtr, "showElevator:ReqType(%d)-eElvDir(%d)-DestFlr(%d)-Time(%.2f)\n",
+      i->m_eReqType,i->m_eElvDir,i->m_iDestFlr,i->m_sTarVal.m_fWaitTime);	
   }
 }
-
-//指针模式访问
-//typedef  vector<sRunIndexPtr>:: iterator   VIntIterator;
-//VIntIterator  end = m_sRunTable.begin();
-//sRunIndexPtr ptr;
-//for( VIntIterator  i=m_sRunTable.begin(); i != end;  ++i )
-//{
-//  ptr = *i;
-//  printf("DIR:%d--DEST_FLR:%d\n", ptr->ElvDir,ptr->);
-//}
-
-//非指针模式访问
-//typedef  vector<sRunIndex>:: iterator   VIntIterator;
-//VIntIterator end = m_sRunTable.begin();
-
-//for( VIntIterator  i=m_sRunTable.begin(); i != end;  ++i )
-//{
-//  printf("DIR:%d--DEST_FLR:%d\n", i->ElvDir,i->DestFlr);
-//}
-
-/********************************************************************
-*  @name     : CElevator::deleteTask    
-*  @brief    : delete task from run table
-*  @param    : ind 
-*  @return   : bool
-********************************************************************/ 
-//bool CElevator::deleteTask(sRunIndex ind)
-//{
-//  sRunIndexIterator j = find( m_sRunTable.begin(), m_sRunTable.end(), ind );
-//  if( j != m_sRunTable.end() )
-//  {
-//    m_sRunTable.erase(j);
-//    return true;
-//  }
-//  else
-//    return false;
-//}
-
-/********************************************************************
-*  @name     : CElevator::insertTask    
-*  @brief    : insert task in run table according to priority
-*  @param    : ind 
-*  @return   : void
-********************************************************************/ 
-//void CElevator::insertTask(sRunIndex ind)
-//{
-//  getTaskPriority( &ind );
-//  m_sRunTable.push_back(ind);
-//  sortTask();
-//}
-
-/********************************************************************
-*  @name     : CElevator::sortTask    
-*  @brief    : 
-*  @param    :  
-*  @return   : void
-********************************************************************/ 
-//void CElevator::sortTask(void)
-//{
-//  sort(m_sRunTable.begin(), m_sRunTable.end(), less<sRunIndex>());
-//}
-
-//模板运算
-//sRunIndex runind = {0,MAX_PRIORITY_NUM,DIR_NONE,0};
-//insertElement(&m_sRunTable,runind);
-
-//runind.m_iDestFlr = 1;
-//insertElement(&m_sRunTable,runind);
-
-//runind.m_iDestFlr = 2;
-//insertElement(&m_sRunTable,runind);
-
-//runind.m_iDestFlr = 3;
-//insertElement(&m_sRunTable,runind);
-//
-//sRunIndexIterator it;
-//deleteElement( &m_sRunTable, runind, it);
-
-
-////预留空间，但不一定初始化
-//for (uint8 i=0; i<MAX_FLOOR_NUM; i++)
-//{
-//  sRunIndex runind = {MAX_PRIORITY_NUM,DIR_NONE,0};
-//  insertTask(runind);
-//}
-
-//at模式访问元素与溢出处理
-//try
-//{
-//  m_sRunTable.at(12);
-//}
-//catch (const exception& e)
-//{
-//  printf("ERROR:%s--%s--Line%d",e.what(),__FILE__,__LINE__);
-//}
 /*********************************************************************
 *********************************************************************/
 

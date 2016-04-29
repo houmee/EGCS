@@ -17,6 +17,8 @@
 #define		COM_DEF_H
 
 #include "com_type.h"
+//#define NDEBUG 
+#include <assert.h>
 
 /*********************************************************************
  * DEFINE

@@ -59,27 +59,25 @@ public:
   double            m_dNextStateTime; //电梯下一状态时间
   bool              m_isSchedule;     //是否被调度
   bool              m_canHandle;      //电梯是否可操作
+  bool              m_isTrytoDispatch;
   sRunItem          m_lastRunItem;   //上一个运行表项
   sRunItemVec       m_sRunTable;      //电梯运行指示列表
   CTools            m_ElvtFile;
 
-  CElevator();         // 构造函数
+  CElevator(){};
+  CElevator(int id, CTools& tools);         // 构造函数
   ~CElevator(){};        // 析构函数
   
   void Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec);
   void changeNextStop();
   void gotoNextDest();
   void onClickInnerBtn(sPassengerIterator& psg);
-  void initELevator(int id, CTools& tools);
-  //bool deleteTask(sRunIndex ind);
-  //void insertTask(sRunIndex ind);
-  //void sortTask(void);
-  void showElevator(uint8 op);
+  void showElevator();
   void getTaskPriority(sRunItem& ind);
   void updateRunInfo();
   sTargetVal trytoDispatch(sOutRequestIterator reqIter);
   sTargetVal runfromXtoY(sRunItem x, sRunItem y);
-  void processInnerPsgFlow(sPassengerInfoVec& psgVec);
+  void processReqPsgFlow(sPassengerInfoVec& psgVec);
   void psgLeave(sPassengerIterator& psg);
   void psgEnter(sPassengerIterator& psg);
   void updateRunTable();

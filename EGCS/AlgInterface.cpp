@@ -238,11 +238,9 @@ bool CAlgInterface::isAlgFinished()
 ********************************************************************/ 
 void CAlgInterface::generateElevatorVec()
 {
-  CElevator elvt;
-
   for (uint16 i=0; i<MAX_ELEVATOR_NUM; i++)
   {
-    elvt.initELevator(i, m_AlgFile);
+    CElevator elvt(i, m_AlgFile);
     insertElement( m_elevatorVec, elvt );
   }
 }

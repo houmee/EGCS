@@ -35,9 +35,9 @@ CMWT::CMWT()
 ********************************************************************/ 
 void CMWT::Core_Main()
 {
+  generateElevatorVec();      //产生电梯群
   generatePsgFlow();          //产生乘客交通流
   //testPsgFlow();
-  generateElevatorVec();      //产生电梯群
 
   while ( !isAlgFinished() )  //所有人是否都已经到达目的层        
   {
@@ -109,7 +109,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
     if ( i->m_iCurFlr == reqIter->m_iReqCurFlr && ELVT_STOP(i->m_eCurState) && i->m_iCurPsgNum < MAX_INNER_PSG_NUM )
     {
       bestElvtIter = i;
-      fprintf(m_AlgFile.m_OutputFilePtr, "fitness:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
+      fprintf(m_AlgFile.m_OutputFilePtr, "dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
       return bestElvtIter;
     }
   }
@@ -134,7 +134,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 
   }
 
-  fprintf(m_AlgFile.m_OutputFilePtr, "fitness:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
+  fprintf(m_AlgFile.m_OutputFilePtr, "dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
   return bestElvtIter;
 }
 
@@ -158,7 +158,7 @@ void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
 
   elvtIter->insertRunTableItem( runInd );       //将外部呼号请求推送给电梯
   elvtIter->changeNextStop();
-  elvtIter->showElevator(1);
+  elvtIter->showElevator();
 }
 
 /********************************************************************
@@ -178,7 +178,7 @@ void CMWT::onClickOutBtn(sPassengerIterator& psg)
   out_req.m_iReqTime = psg->m_dReqTime;
   out_req.m_eReqDir = (psg->m_iDestFlr > psg->m_iReqCurFlr) ? DIR_UP : DIR_DOWN;
 
-  fprintf(m_AlgFile.m_OutputFilePtr, "onClickOutBtn:Psg(%2d)-SysTime(%.2f)\n",psg->m_iPsgID,gSystemTime);	
+  fprintf(m_AlgFile.m_OutputFilePtr, "onClickOutBtn:Psg(%2d)-ReqCurFlr(%2d)-SysTime(%.2f)\n",psg->m_iPsgID,psg->m_iReqCurFlr,gSystemTime);	
   
   if ( queryElement( m_outReqVec,out_req,reqIter ) != m_outReqVec.end() )
     return;
