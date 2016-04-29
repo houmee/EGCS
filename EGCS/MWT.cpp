@@ -35,8 +35,8 @@ CMWT::CMWT()
 ********************************************************************/ 
 void CMWT::Core_Main()
 {
-  //generatePsgFlow();          //产生乘客交通流
-  testPsgFlow();
+  generatePsgFlow();          //产生乘客交通流
+  //testPsgFlow();
   generateElevatorVec();      //产生电梯群
 
   while ( !isAlgFinished() )  //所有人是否都已经到达目的层        
@@ -57,6 +57,8 @@ void CMWT::Core_Main()
     if ( gSystemTime > 1000)
     {
       m_AlgFile.CloseTools(1);
+      printf("Run fail!\n");
+      getchar();
       exit(1);
     }
   }

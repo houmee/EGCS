@@ -33,6 +33,7 @@ CEGCS::CEGCS()
 ********************************************************************/ 
 CEGCS::~CEGCS()
 {
+  m_alg->~CAlgInterface();
   delete m_alg;
 }
 

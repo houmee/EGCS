@@ -36,12 +36,12 @@ CElevator::CElevator()
   m_canHandle     = false;
   m_sRunTable.reserve(MAX_FLOOR_NUM);
 
-  m_lastRunIndex.m_eElvDir              = DIR_NONE;
-  m_lastRunIndex.m_eReqType             = IN_REQ;
-  m_lastRunIndex.m_iDestFlr             = 1;
-  m_lastRunIndex.m_iPriority            = 0x7F;
-  m_lastRunIndex.m_sTarVal.m_fEnergy    = 0;
-  m_lastRunIndex.m_sTarVal.m_fWaitTime  = 0;
+  m_lastRunItem.m_eElvDir              = DIR_NONE;
+  m_lastRunItem.m_eReqType             = IN_REQ;
+  m_lastRunItem.m_iDestFlr             = 1;
+  m_lastRunItem.m_iPriority            = 0x7F;
+  m_lastRunItem.m_sTarVal.m_fEnergy    = 0;
+  m_lastRunItem.m_sTarVal.m_fWaitTime  = 0;
 
   showElevator(1);
 }
@@ -123,12 +123,12 @@ void CElevator::updateRunInfo()
     else if( m_eCurState == UP_CONST || m_eCurState == DOWN_CONST )
       m_dCurRunDis = (double)( runTime - ACCELERATE_TIME )*RUN_SPEED + ACCELERATE_LENGTH;
     else if ( m_eCurState == UP_DEC || m_eCurState == DOWN_DEC )
-      m_dCurRunDis = abs(m_lastRunIndex.m_iDestFlr - m_iNextStopFlr)*FLOOR_HEIGHT-(double)remainTime/DECELERATE_TIME*DECELERATE_LENGTH;
+      m_dCurRunDis = abs(m_lastRunItem.m_iDestFlr - m_iNextStopFlr)*FLOOR_HEIGHT-(double)remainTime/DECELERATE_TIME*DECELERATE_LENGTH;
 
     if ( ELVT_UP(m_eCurState) )
-      m_iCurFlr = (uint8)(m_dCurRunDis / FLOOR_HEIGHT) + m_lastRunIndex.m_iDestFlr;
+      m_iCurFlr = (uint8)(m_dCurRunDis / FLOOR_HEIGHT) + m_lastRunItem.m_iDestFlr;
     else if ( ELVT_DOWN(m_eCurState) )
-      m_iCurFlr = m_lastRunIndex.m_iDestFlr - (uint8)(m_dCurRunDis / FLOOR_HEIGHT);
+      m_iCurFlr = m_lastRunItem.m_iDestFlr - (uint8)(m_dCurRunDis / FLOOR_HEIGHT);
 
     if ( m_iCurFlr > MAX_FLOOR_NUM )
       m_iCurFlr = MAX_FLOOR_NUM;
@@ -167,21 +167,27 @@ void CElevator::updateRunInfo()
 ********************************************************************/ 
 void CElevator::gotoNextDest()
 {
-  sRunItemIterator tarInd;
-  m_dLastStateTime = m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
+  sRunItemIterator tarIter;
+  sRunItem tmp;
 
   //保存上一停靠的状态
   if ( m_sRunTable.size() > 0 && m_iCurFlr == m_sRunTable.at(0).m_iDestFlr )
   {
-    m_lastRunIndex = m_sRunTable[0];
+    tmp = m_lastRunItem;
+    m_lastRunItem = m_sRunTable.at(0);
     m_dCurRunDis = 0;
     m_dStartTime = m_dNextStateTime;
 
-    tarInd = queryElement( m_sRunTable,m_lastRunIndex,tarInd );  
-    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: Delete item-ReqType(%d)-DestFlr(%d)\n", tarInd->m_eReqType, tarInd->m_iDestFlr);	
-    deleteRunTableItem( m_lastRunIndex );
+    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest(LastItem):NextStopFlr(%2d)->(%2d)\n",tmp.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
+
+    tarIter = queryElement( m_sRunTable,m_lastRunItem,tarIter );  
+    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: Delete item-ReqType(%d)-DestFlr(%d)\n", tarIter->m_eReqType, tarIter->m_iDestFlr);	
+    deleteRunTableItem( m_lastRunItem );
   }
 
+  fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: m_dLastStateTime(%.2f)->(%.2f)\n",m_dLastStateTime, m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME);	
+  m_dLastStateTime = m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
+  
   fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
   showElevator(1);  
 }
@@ -194,24 +200,30 @@ void CElevator::gotoNextDest()
 ********************************************************************/ 
 void CElevator::changeNextStop()
 {
-  int tmpFlr;
+  int    tmpFlr;
   double tmpTime;
 
   if ( m_sRunTable.size() > 0 )
   {
-    if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )
+    if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )   //destFlr优先级一定小于nextStopFlr
     {
       tmpFlr = m_iNextStopFlr;
       tmpTime = m_dNextStateTime;
 
-      if ( m_iNextStopFlr == m_iCurFlr )
+      if ( m_sRunTable.at(0).m_iDestFlr == m_iCurFlr )
       {
         m_dNextStateTime = gSystemTime;
-        m_eCurState      = IDLE;
-        m_eRundir        = DIR_NONE;
+        m_eRundir = DIR_NONE;
+        if ( m_lastRunItem.m_eElvDir == DIR_UP )
+          m_eCurState = UP_PAUSE;
+        else if ( m_lastRunItem.m_eElvDir == DIR_DOWN )
+          m_eCurState = DOWN_PAUSE;
+        else
+          m_eCurState = IDLE;
       }
       else
       {
+        m_lastRunItem = m_sRunTable.at(0);
         m_iNextStopFlr   = m_sRunTable.at(0).m_iDestFlr;
         m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
         m_eCurState      = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
@@ -238,32 +250,32 @@ void CElevator::changeNextStop()
 ********************************************************************/ 
 sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
 {
-  sRunItem reqRunInd;
-  sRunItemIterator tarInd;
+  sRunItem reqRunItem;
+  sRunItemIterator tarIter;
   sTargetVal tarVal = {0,0}, tmpTarVal={0,0};
 
   //将外部请求封装为运行表项，获取从当前位置到请求的目标值
   if ( reqIter->m_iReqCurFlr == m_iCurFlr )
-    reqRunInd.m_eElvDir = DIR_NONE;
+    reqRunItem.m_eElvDir = DIR_NONE;
   else
-    reqRunInd.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
+    reqRunItem.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
 
-  reqRunInd.m_eReqType = OUT_REQ;
-  reqRunInd.m_iDestFlr = reqIter->m_iReqCurFlr;
+  reqRunItem.m_eReqType = OUT_REQ;
+  reqRunItem.m_iDestFlr = reqIter->m_iReqCurFlr;
 
   //////////////////////////////////////////////////////////////////////////
   //求插入后的代价值
-  tarInd  = queryElement( m_sRunTable,reqRunInd,tarInd );
-  if ( tarInd == m_sRunTable.end() )
+  tarIter  = queryElement( m_sRunTable,reqRunItem,tarIter );
+  if ( tarIter == m_sRunTable.end() )
   {
-    insertRunTableItem( reqRunInd );  //插入当前运行表同时更新表的各项目标值
+    insertRunTableItem( reqRunItem );  //插入当前运行表同时更新表的各项目标值
 
-    tarInd  = queryElement( m_sRunTable,reqRunInd,tarInd );     //插入操作导致tarInd失效，重新查询
+    tarIter  = queryElement( m_sRunTable,reqRunItem,tarIter );     //插入操作导致tarInd失效，重新查询
     sRunItemIterator end = m_sRunTable.end();
     
     for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
     {
-      if ( i <= tarInd )
+      if ( i <= tarIter )
       {
         tmpTarVal.m_fEnergy   += i->m_sTarVal.m_fEnergy;
         tmpTarVal.m_fWaitTime += i->m_sTarVal.m_fWaitTime;
@@ -278,7 +290,7 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
     }
   }
 
-  deleteRunTableItem( reqRunInd );
+  deleteRunTableItem( reqRunItem );
   return tarVal;     //返回目标值
 }
 
@@ -290,19 +302,19 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
 ********************************************************************/ 
 void CElevator::onClickInnerBtn(sPassengerIterator& psg)
 {
-  sRunItem runInd;
+  sRunItem runItem;
   sRunItemIterator indIter;
 
-  runInd.m_eReqType = IN_REQ;
-  runInd.m_iDestFlr = psg->m_iDestFlr;
-  runInd.m_eElvDir = (psg->m_iDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
+  runItem.m_eReqType = IN_REQ;
+  runItem.m_iDestFlr = psg->m_iDestFlr;
+  runItem.m_eElvDir = (psg->m_iDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
   
   if (m_sRunTable.size() == 1)
   {
     int a = 0;
   }
-  insertRunTableItem( runInd );
-  fprintf(m_ElvtFile.m_OutputFilePtr, "onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runInd.m_iDestFlr,runInd.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
+  insertRunTableItem( runItem );
+  fprintf(m_ElvtFile.m_OutputFilePtr, "onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
 }
 
 /********************************************************************
@@ -328,18 +340,16 @@ void CElevator::processInnerPsgFlow(sPassengerInfoVec& psgVec)
     }
   }
 
-  if ( m_sRunTable.size() > 0 )
+
+  for( sPassengerIterator i=psgVec.begin(); i != psgIterEnd;  ++i )
   {
-    for( sPassengerIterator i=psgVec.begin(); i != psgIterEnd;  ++i )
-    {
-      //如果乘客处于等待中且当前电梯已经到达停靠
-      if (i->m_ePsgState == PSG_WAIT && i->m_iReqCurFlr == m_iCurFlr )
-        if (i->m_eReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM)
-        {
-          psgEnter(i);
-          onClickInnerBtn(i);
-        }
-    }
+    //如果乘客处于等待中且当前电梯已经到达停靠
+    if (i->m_ePsgState == PSG_WAIT && i->m_iReqCurFlr == m_iCurFlr )
+      if (i->m_eReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM)
+      {
+        psgEnter(i);
+        onClickInnerBtn(i);
+      }
   }
 
   fprintf(m_ElvtFile.m_OutputFilePtr, "processInnerPsgFlow:\n");
@@ -429,7 +439,7 @@ void CElevator::updateRunTable()
     if ( i == m_sRunTable.begin() )
     {
       preRunInd = *i;
-      i->m_sTarVal = runfromXtoY( m_lastRunIndex, preRunInd );
+      i->m_sTarVal = runfromXtoY( m_lastRunItem, preRunInd );
     }
     else
     {

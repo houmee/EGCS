@@ -31,6 +31,14 @@ void CTools::InitTools()
     fprintf(stderr,"Cannot open output file %s\n", "EGCSLog.txt");
     exit(-1);
   }
+
+  //打开输出文件名
+  fopen_s(&m_PsgFilePtr,".\\Data\\PsgInfo.txt","r+");
+  if (m_PsgFilePtr == NULL )
+  {
+    fprintf(stderr,"Cannot open output file %s\n", "PsgInfo.txt");
+    exit(-1);
+  }
 }
 
 //---------------------------------------------------------------------------
@@ -39,6 +47,7 @@ void CTools::InitTools()
 void CTools::CloseTools(int select_item)
 {
    fclose(m_OutputFilePtr);
+   fclose(m_PsgFilePtr);
 }
 
 //---------------------------------------------------------------------------

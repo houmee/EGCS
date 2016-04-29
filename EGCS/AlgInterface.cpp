@@ -42,6 +42,7 @@ CAlgInterface::CAlgInterface()
   m_AlgFile.InitTools();
   m_eFlowType = RAND_FLOW;
   //m_eFlowType = UP_FLOW;
+  //m_eFlowType = DOWN_FLOW;
 } 
 
 /********************************************************************
@@ -88,6 +89,8 @@ void CAlgInterface::testPsgFlow()
   for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
     fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_dReqTime);	
+    fprintf(m_AlgFile.m_PsgFilePtr, "%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
+      i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_eReqDir, i->m_dReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
   }
 }
 
@@ -103,22 +106,22 @@ void CAlgInterface::generatePsgFlow()
 
   sPassengerInfo psg;
 
+#if defined( TEST )
   if ( m_eFlowType == UP_FLOW )       //上高峰
   {
     for (uint16 i=0; i<psg_num; i++)
     {
-      psg.m_iPsgID = i;
-      psg.m_iReqCurFlr = 1;
-      psg.m_dWaitTime = 0.0;
-      psg.m_dAllTime = 0.0;
-      psg.m_ePsgState = PSG_NONE;
-      psg.m_iCurPlace = PSG_ARRIVE_PLACE;
+      psg.m_iPsgID      = i;
+      psg.m_iReqCurFlr  = 1;          //请求楼层为1
+      psg.m_dWaitTime   = 0.0;
+      psg.m_dAllTime    = 0.0;
+      psg.m_ePsgState   = PSG_NONE;
+      psg.m_iCurPlace   = PSG_ARRIVE_PLACE;
       //目的楼层是2~MAX
-      psg.m_iDestFlr = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+2;
-      psg.m_iDestFlr = psg.m_iDestFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iDestFlr;
-      psg.m_eReqDir = (psg.m_iReqCurFlr > psg.m_iDestFlr) ? DIR_DOWN : DIR_UP;
-      //到达时间需要按照一定规律
-      psg.m_dReqTime = generateRandTime();
+      psg.m_iDestFlr    = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+2;
+      psg.m_iDestFlr    = psg.m_iDestFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iDestFlr;
+      psg.m_eReqDir     = DIR_UP;
+      psg.m_dReqTime    = generateRandTime();
 
       insertElement( m_passengerVec, psg );
     }
@@ -127,18 +130,17 @@ void CAlgInterface::generatePsgFlow()
   {
     for (uint16 i=0; i<psg_num; i++)
     {
-      psg.m_iPsgID = i;
-      psg.m_iDestFlr = 1;
-      psg.m_dWaitTime = 0.0;
-      psg.m_dAllTime = 0.0;
-      psg.m_ePsgState = PSG_NONE;
-      psg.m_iCurPlace = PSG_ARRIVE_PLACE;
+      psg.m_iPsgID      = i;
+      psg.m_iDestFlr    = 1;       //目的楼层为1
+      psg.m_dWaitTime   = 0.0;
+      psg.m_dAllTime    = 0.0;
+      psg.m_ePsgState   = PSG_NONE;
+      psg.m_iCurPlace   = PSG_ARRIVE_PLACE;
       //请求楼层是2~MAX
-      psg.m_iDestFlr = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+2;
-      psg.m_iDestFlr = psg.m_iDestFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iDestFlr;
-      psg.m_eReqDir = (psg.m_iReqCurFlr > psg.m_iDestFlr) ? DIR_DOWN : DIR_UP;
-      //到达时间需要按照一定规律
-      psg.m_dReqTime = generateRandTime();
+      psg.m_iReqCurFlr  = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+2;
+      psg.m_iReqCurFlr  = psg.m_iReqCurFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iReqCurFlr;
+      psg.m_eReqDir     = DIR_DOWN ;
+      psg.m_dReqTime    = generateRandTime();
 
       insertElement( m_passengerVec, psg );
     }
@@ -170,8 +172,22 @@ void CAlgInterface::generatePsgFlow()
       insertElement( m_passengerVec, psg );
     }
   }
+#else
+  ////////////////////////////////////////////////////////////////////////
+  //读取文件(测试用)
+  for (uint16 i=0; i<psg_num; i++)
+  {
+    if (fscanf_s( m_AlgFile.m_PsgFilePtr, "%d %d %d %d %lf %lf %lf %d %d\n",
+                 &psg.m_iPsgID,&psg.m_iReqCurFlr,&psg.m_iDestFlr,&psg.m_eReqDir, &psg.m_dReqTime, &psg.m_dWaitTime, &psg.m_dAllTime, &psg.m_ePsgState, &psg.m_iCurPlace) == EOF)
+    {
+      fprintf(m_AlgFile.m_PsgFilePtr,"Reading psg file meets error!\n");
+      getchar();
+      exit(1);
+    }	
+    insertElement( m_passengerVec, psg );
+   }
   sortElement( m_passengerVec, psg); //根据请求时间排序
-
+#endif
 
   //////////////////////////////////////////////////////////////////////////
   //测试脚本
@@ -179,8 +195,14 @@ void CAlgInterface::generatePsgFlow()
   for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
     fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_dReqTime);	
+
+#if defined (TEST)   
+    fprintf(m_AlgFile.m_PsgFilePtr, "%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
+      i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_eReqDir, i->m_dReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
+#endif 
   }
 }
+
 
 /********************************************************************
 *  @name     : CAlgInterface::generateRandTime    

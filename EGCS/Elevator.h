@@ -59,7 +59,7 @@ public:
   double            m_dNextStateTime; //电梯下一状态时间
   bool              m_isSchedule;     //是否被调度
   bool              m_canHandle;      //电梯是否可操作
-  sRunItem          m_lastRunIndex;   //上一个运行表项
+  sRunItem          m_lastRunItem;   //上一个运行表项
   sRunItemVec       m_sRunTable;      //电梯运行指示列表
   CTools            m_ElvtFile;
 
