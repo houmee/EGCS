@@ -21,6 +21,7 @@ class CTools
 {
 public:
   FILE* m_OutputFilePtr;			// 输出文件指针
+  FILE* m_PsgFilePtr;
 
 public:
   CTools();                  // 构造函数 

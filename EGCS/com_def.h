@@ -73,6 +73,8 @@ extern uint8  gBatch;
 #define OPEN_CLOSE_TIME			2				  //开关门时间(s)
 #define PSG_ENTER_TIME			1				  //乘客进入/离开时间时间(s)
     
+
+//#define  TEST
 /*********************************************************************
  * ENUMS
  */

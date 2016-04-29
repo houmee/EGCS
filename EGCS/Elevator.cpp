@@ -167,21 +167,27 @@ void CElevator::updateRunInfo()
 ********************************************************************/ 
 void CElevator::gotoNextDest()
 {
-  sRunItemIterator tarInd;
-  m_dLastStateTime = m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
+  sRunItemIterator tarIter;
+  sRunItem tmp;
 
   //保存上一停靠的状态
   if ( m_sRunTable.size() > 0 && m_iCurFlr == m_sRunTable.at(0).m_iDestFlr )
   {
-    m_lastRunItem = m_sRunTable[0];
+    tmp = m_lastRunItem;
+    m_lastRunItem = m_sRunTable.at(0);
     m_dCurRunDis = 0;
     m_dStartTime = m_dNextStateTime;
 
-    tarInd = queryElement( m_sRunTable,m_lastRunItem,tarInd );  
-    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: Delete item-ReqType(%d)-DestFlr(%d)\n", tarInd->m_eReqType, tarInd->m_iDestFlr);	
+    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest(LastItem):NextStopFlr(%2d)->(%2d)\n",tmp.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
+
+    tarIter = queryElement( m_sRunTable,m_lastRunItem,tarIter );  
+    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: Delete item-ReqType(%d)-DestFlr(%d)\n", tarIter->m_eReqType, tarIter->m_iDestFlr);	
     deleteRunTableItem( m_lastRunItem );
   }
 
+  fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest: m_dLastStateTime(%.2f)->(%.2f)\n",m_dLastStateTime, m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME);	
+  m_dLastStateTime = m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
+  
   fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
   showElevator(1);  
 }
@@ -194,12 +200,12 @@ void CElevator::gotoNextDest()
 ********************************************************************/ 
 void CElevator::changeNextStop()
 {
-  int tmpFlr;
+  int    tmpFlr;
   double tmpTime;
 
   if ( m_sRunTable.size() > 0 )
   {
-    if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )   //destFlr 一定小于nextStopFlr
+    if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )   //destFlr优先级一定小于nextStopFlr
     {
       tmpFlr = m_iNextStopFlr;
       tmpTime = m_dNextStateTime;
@@ -217,6 +223,7 @@ void CElevator::changeNextStop()
       }
       else
       {
+        m_lastRunItem = m_sRunTable.at(0);
         m_iNextStopFlr   = m_sRunTable.at(0).m_iDestFlr;
         m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
         m_eCurState      = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
@@ -243,32 +250,32 @@ void CElevator::changeNextStop()
 ********************************************************************/ 
 sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
 {
-  sRunItem reqRunInd;
-  sRunItemIterator tarInd;
+  sRunItem reqRunItem;
+  sRunItemIterator tarIter;
   sTargetVal tarVal = {0,0}, tmpTarVal={0,0};
 
   //将外部请求封装为运行表项，获取从当前位置到请求的目标值
   if ( reqIter->m_iReqCurFlr == m_iCurFlr )
-    reqRunInd.m_eElvDir = DIR_NONE;
+    reqRunItem.m_eElvDir = DIR_NONE;
   else
-    reqRunInd.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
+    reqRunItem.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
 
-  reqRunInd.m_eReqType = OUT_REQ;
-  reqRunInd.m_iDestFlr = reqIter->m_iReqCurFlr;
+  reqRunItem.m_eReqType = OUT_REQ;
+  reqRunItem.m_iDestFlr = reqIter->m_iReqCurFlr;
 
   //////////////////////////////////////////////////////////////////////////
   //求插入后的代价值
-  tarInd  = queryElement( m_sRunTable,reqRunInd,tarInd );
-  if ( tarInd == m_sRunTable.end() )
+  tarIter  = queryElement( m_sRunTable,reqRunItem,tarIter );
+  if ( tarIter == m_sRunTable.end() )
   {
-    insertRunTableItem( reqRunInd );  //插入当前运行表同时更新表的各项目标值
+    insertRunTableItem( reqRunItem );  //插入当前运行表同时更新表的各项目标值
 
-    tarInd  = queryElement( m_sRunTable,reqRunInd,tarInd );     //插入操作导致tarInd失效，重新查询
+    tarIter  = queryElement( m_sRunTable,reqRunItem,tarIter );     //插入操作导致tarInd失效，重新查询
     sRunItemIterator end = m_sRunTable.end();
     
     for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
     {
-      if ( i <= tarInd )
+      if ( i <= tarIter )
       {
         tmpTarVal.m_fEnergy   += i->m_sTarVal.m_fEnergy;
         tmpTarVal.m_fWaitTime += i->m_sTarVal.m_fWaitTime;
@@ -283,7 +290,7 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
     }
   }
 
-  deleteRunTableItem( reqRunInd );
+  deleteRunTableItem( reqRunItem );
   return tarVal;     //返回目标值
 }
 
@@ -295,19 +302,19 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
 ********************************************************************/ 
 void CElevator::onClickInnerBtn(sPassengerIterator& psg)
 {
-  sRunItem runInd;
+  sRunItem runItem;
   sRunItemIterator indIter;
 
-  runInd.m_eReqType = IN_REQ;
-  runInd.m_iDestFlr = psg->m_iDestFlr;
-  runInd.m_eElvDir = (psg->m_iDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
+  runItem.m_eReqType = IN_REQ;
+  runItem.m_iDestFlr = psg->m_iDestFlr;
+  runItem.m_eElvDir = (psg->m_iDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
   
   if (m_sRunTable.size() == 1)
   {
     int a = 0;
   }
-  insertRunTableItem( runInd );
-  fprintf(m_ElvtFile.m_OutputFilePtr, "onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runInd.m_iDestFlr,runInd.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
+  insertRunTableItem( runItem );
+  fprintf(m_ElvtFile.m_OutputFilePtr, "onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
 }
 
 /********************************************************************
