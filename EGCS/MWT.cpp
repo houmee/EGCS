@@ -43,12 +43,17 @@ void CMWT::Core_Main()
   {
     gSystemTime += SYSTEM_TIME_STEP;
     fprintf(m_AlgFile.m_OutputFilePtr, "\n++++++++++++++++Core_Main:+++%.2f++++++++++++++++\n",gSystemTime);
-    //外部请求部分
+
+    //更新电梯状态
+    CElevatorIterator elvtIterEnd = m_elevatorVec.end();
+    for( CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
+      i->updateRunInfo();
+
+    //处理外部请求
     processOuterReqFlow();    //处理外部请求
     schedule();               //将外部请求分派调度
 
-    //电梯部分
-    CElevatorIterator elvtIterEnd = m_elevatorVec.end();
+    //电梯控制
     for( CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
       i->Elevator_Main(m_outReqVec, m_passengerVec);
 
@@ -157,7 +162,6 @@ void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
     runInd.m_eElvDir  =( reqIter->m_iReqCurFlr > elvtIter->m_iCurFlr ) ? DIR_UP : DIR_DOWN;
 
   elvtIter->insertRunTableItem( runInd );       //将外部呼号请求推送给电梯
-  elvtIter->changeNextStop();
   elvtIter->showElevator();
 }
 
@@ -178,7 +182,7 @@ void CMWT::onClickOutBtn(sPassengerIterator& psg)
   out_req.m_iReqTime = psg->m_dReqTime;
   out_req.m_eReqDir = (psg->m_iDestFlr > psg->m_iReqCurFlr) ? DIR_UP : DIR_DOWN;
 
-  fprintf(m_AlgFile.m_OutputFilePtr, "onClickOutBtn:Psg(%2d)-ReqCurFlr(%2d)-SysTime(%.2f)\n",psg->m_iPsgID,psg->m_iReqCurFlr,gSystemTime);	
+  //fprintf(m_AlgFile.m_OutputFilePtr, "onClickOutBtn:Psg(%2d)-ReqCurFlr(%2d)-SysTime(%.2f)\n",psg->m_iPsgID,psg->m_iReqCurFlr,gSystemTime);	
   
   if ( queryElement( m_outReqVec,out_req,reqIter ) != m_outReqVec.end() )
     return;

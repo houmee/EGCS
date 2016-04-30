@@ -122,9 +122,9 @@ enum ElvtRunState			//电梯箱体运行状态
 
 enum RunDir			//电梯运行方向（趋势）
 {
-	DIR_DOWN,				    //向上
-	DIR_UP,					    //向下
-	DIR_NONE				  //无方向性
+	DIR_DOWN,				    //向上0
+	DIR_UP,					    //向下1
+	DIR_NONE				  //无方向性2
 };
 
 enum EvtType			//事件类型
