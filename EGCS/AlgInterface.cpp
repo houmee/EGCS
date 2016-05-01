@@ -88,9 +88,9 @@ void CAlgInterface::testPsgFlow()
   sPassengerIterator psgIterEnd = m_passengerVec.end();
   for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
-    fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_dReqTime);	
+    fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
     fprintf(m_AlgFile.m_PsgFilePtr, "%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
-      i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_eReqDir, i->m_dReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
+      i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
   }
 }
 
@@ -112,16 +112,16 @@ void CAlgInterface::generatePsgFlow()
     for (uint16 i=0; i<psg_num; i++)
     {
       psg.m_iPsgID      = i;
-      psg.m_iReqCurFlr  = 1;          //请求楼层为1
+      psg.m_iPsgCurFlr  = 1;          //请求楼层为1
       psg.m_dWaitTime   = 0.0;
       psg.m_dAllTime    = 0.0;
       psg.m_ePsgState   = PSG_NONE;
       psg.m_iCurPlace   = PSG_ARRIVE_PLACE;
       //目的楼层是2~MAX
-      psg.m_iDestFlr    = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+2;
-      psg.m_iDestFlr    = psg.m_iDestFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iDestFlr;
-      psg.m_eReqDir     = DIR_UP;
-      psg.m_dReqTime    = generateRandTime();
+      psg.m_iPsgDestFlr    = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+2;
+      psg.m_iPsgDestFlr    = psg.m_iPsgDestFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iPsgDestFlr;
+      psg.m_ePsgReqDir     = DIR_UP;
+      psg.m_dPsgReqTime    = generateRandTime();
 
       insertElement( m_passengerVec, psg );
     }
@@ -131,16 +131,16 @@ void CAlgInterface::generatePsgFlow()
     for (uint16 i=0; i<psg_num; i++)
     {
       psg.m_iPsgID      = i;
-      psg.m_iDestFlr    = 1;       //目的楼层为1
+      psg.m_iPsgDestFlr    = 1;       //目的楼层为1
       psg.m_dWaitTime   = 0.0;
       psg.m_dAllTime    = 0.0;
       psg.m_ePsgState   = PSG_NONE;
       psg.m_iCurPlace   = PSG_ARRIVE_PLACE;
       //请求楼层是2~MAX
-      psg.m_iReqCurFlr  = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+2;
-      psg.m_iReqCurFlr  = psg.m_iReqCurFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iReqCurFlr;
-      psg.m_eReqDir     = DIR_DOWN ;
-      psg.m_dReqTime    = generateRandTime();
+      psg.m_iPsgCurFlr  = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+2;
+      psg.m_iPsgCurFlr  = psg.m_iPsgCurFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iPsgCurFlr;
+      psg.m_ePsgReqDir     = DIR_DOWN ;
+      psg.m_dPsgReqTime    = generateRandTime();
 
       insertElement( m_passengerVec, psg );
     }
@@ -155,19 +155,19 @@ void CAlgInterface::generatePsgFlow()
       psg.m_ePsgState = PSG_NONE;
       psg.m_iCurPlace = PSG_ARRIVE_PLACE;
       //请求楼层和目的楼层是1~MAX
-      psg.m_iReqCurFlr = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+1;
-      psg.m_iReqCurFlr = psg.m_iReqCurFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iReqCurFlr;
+      psg.m_iPsgCurFlr = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+1;
+      psg.m_iPsgCurFlr = psg.m_iPsgCurFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iPsgCurFlr;
 
       do 
       {
-        psg.m_iDestFlr = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+1;
-        psg.m_iDestFlr = psg.m_iDestFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iDestFlr;
-      } while ( psg.m_iDestFlr == psg.m_iReqCurFlr );
+        psg.m_iPsgDestFlr = (int)floor(MAX_FLOOR_NUM * rand()/(double)(RAND_MAX+1))+1;
+        psg.m_iPsgDestFlr = psg.m_iPsgDestFlr > MAX_FLOOR_NUM ? MAX_FLOOR_NUM : psg.m_iPsgDestFlr;
+      } while ( psg.m_iPsgDestFlr == psg.m_iPsgCurFlr );
 
-      psg.m_eReqDir = (psg.m_iReqCurFlr > psg.m_iDestFlr) ? DIR_DOWN : DIR_UP;
+      psg.m_ePsgReqDir = (psg.m_iPsgCurFlr > psg.m_iPsgDestFlr) ? DIR_DOWN : DIR_UP;
       
       //到达时间需要按照一定规律
-      psg.m_dReqTime = generateRandTime();
+      psg.m_dPsgReqTime = generateRandTime();
 
       insertElement( m_passengerVec, psg );
     }
@@ -178,7 +178,7 @@ void CAlgInterface::generatePsgFlow()
   for (uint16 i=0; i<psg_num; i++)
   {
     if (fscanf_s( m_AlgFile.m_PsgFilePtr, "%d %d %d %d %lf %lf %lf %d %d\n",
-                 &psg.m_iPsgID,&psg.m_iReqCurFlr,&psg.m_iDestFlr,&psg.m_eReqDir, &psg.m_dReqTime, &psg.m_dWaitTime, &psg.m_dAllTime, &psg.m_ePsgState, &psg.m_iCurPlace) == EOF)
+                 &psg.m_iPsgID,&psg.m_iPsgCurFlr,&psg.m_iPsgDestFlr,&psg.m_ePsgReqDir, &psg.m_dPsgReqTime, &psg.m_dWaitTime, &psg.m_dAllTime, &psg.m_ePsgState, &psg.m_iCurPlace) == EOF)
     {
       fprintf(m_AlgFile.m_PsgFilePtr,"Reading psg file meets error!\n");
       getchar();
@@ -194,11 +194,11 @@ void CAlgInterface::generatePsgFlow()
   sPassengerIterator psgIterEnd = m_passengerVec.end();
   for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
-    fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_dReqTime);	
+    fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
 
 #if defined (TEST)   
     fprintf(m_AlgFile.m_PsgFilePtr, "%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
-      i->m_iPsgID,i->m_iReqCurFlr,i->m_iDestFlr,i->m_eReqDir, i->m_dReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
+      i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTimem_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
 #endif 
   }
 }

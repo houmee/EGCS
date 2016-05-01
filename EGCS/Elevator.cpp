@@ -335,8 +335,8 @@ void CElevator::onClickInnerBtn(sPassengerIterator& psg)
   sRunItemIterator indIter;
 
   runItem.m_eReqType = IN_REQ;
-  runItem.m_iDestFlr = psg->m_iDestFlr;
-  runItem.m_eElvDir = (psg->m_iDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
+  runItem.m_iDestFlr = psg->m_iPsgDestFlr;
+  runItem.m_eElvDir = (psg->m_iPsgDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
   
   insertRunTableItem( runItem );
   fprintf(m_ElvtFile.m_OutputFilePtr, "onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
@@ -359,7 +359,7 @@ void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
       //如果乘客处在当前电梯中且之前状态为乘梯中
       if ( i->m_iCurPlace == m_iElvtID && i->m_ePsgState == PSG_TRAVEL )  
       {
-        if ( m_iCurFlr == i->m_iDestFlr && ELVT_STOP( m_eCurState ) ) //如果当前层为乘客目标层
+        if ( m_iCurFlr == i->m_iPsgDestFlr && ELVT_STOP( m_eCurState ) ) //如果当前层为乘客目标层
           psgLeave(i);    //离开电梯
       }
     }
@@ -369,11 +369,15 @@ void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
   for( sPassengerIterator i=psgVec.begin(); i != psgIterEnd;  ++i )
   {
     //如果乘客处于等待中且当前电梯已经到达停靠
-    if (i->m_ePsgState == PSG_WAIT && i->m_iReqCurFlr == m_iCurFlr )
-      if (i->m_eReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM)
+    if (i->m_ePsgState == PSG_WAIT && i->m_iPsgCurFlr == m_iCurFlr )
+      if (i->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM)
       {
         psgEnter(i);
         onClickInnerBtn(i);
+      }
+      if ( i->m_ePsgReqDir != m_eRundir )
+      {
+        fprintf(m_ElvtFile.m_OutputFilePtr, "processInnerPsgFlow:Inner Req[Psg(%2d)-PsgDest(%2d)-CUrFlr(%2d)] is refused!\n", i->m_iPsgID, i->m_iPsgDestFlr,m_iCurFlr);
       }
   }
 
@@ -392,7 +396,7 @@ void CElevator::psgLeave(sPassengerIterator& psg)
   //更新乘客状态
   m_iCurPsgNum--;                 
   psg->m_ePsgState = PSG_ARRIVE;
-  psg->m_dAllTime = gSystemTime - psg->m_dReqTime;
+  psg->m_dAllTime = gSystemTime - psg->m_dPsgReqTime;
   psg->m_iCurPlace = PSG_ARRIVE_PLACE;
   fprintf(m_ElvtFile.m_OutputFilePtr, "psgLeave:Psg(%2d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
 }
@@ -406,7 +410,7 @@ void CElevator::psgLeave(sPassengerIterator& psg)
 void CElevator::psgEnter(sPassengerIterator& psg)
 {
   m_iCurPsgNum++;
-  psg->m_dWaitTime = gSystemTime - psg->m_dReqTime;
+  psg->m_dWaitTime = gSystemTime - psg->m_dPsgReqTime;
   psg->m_ePsgState = PSG_TRAVEL;
   psg->m_iCurPlace = m_iElvtID;
   fprintf(m_ElvtFile.m_OutputFilePtr, "psgEnter:Psg(%2d) Enters Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	

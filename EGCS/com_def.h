@@ -156,7 +156,7 @@ typedef struct OutRequest
 	RunDir     	  m_eReqDir;          //外部请求方向
 	uint8		      m_iReqCurFlr;       //外部请求所在楼层号
   uint8		      m_iReqDestFlr;      //外部请求目的楼层号
-	double		    m_iReqTime;         //外部请求时间
+	double		    m_dReqTime;         //外部请求时间
   uint16        m_iReqNum;          //相同请求同一时间请求次数
 
   bool operator <(const OutRequest& rhs) const // 升序排序时必须写的函数
@@ -171,17 +171,17 @@ typedef struct OutRequest
 
   bool operator == (const OutRequest& rhs) const
   {
-    return (m_iReqCurFlr == rhs.m_iReqCurFlr);
+    return ( m_iReqCurFlr == rhs.m_iReqCurFlr && m_eReqDir == rhs.m_eReqDir );
   }
 } sOutRequest;
 
 typedef struct  Passenger
 { 
   uint16	  m_iPsgID;          //乘客序号
-  uint8		  m_iReqCurFlr;      //请求所在楼层号
-  uint8		  m_iDestFlr;        //目的楼层
-  RunDir    m_eReqDir;         //外部请求方向
-  double    m_dReqTime;        //请求时间
+  uint8		  m_iPsgCurFlr;      //请求所在楼层号
+  uint8		  m_iPsgDestFlr;     //目的楼层
+  RunDir    m_ePsgReqDir;      //外部请求方向
+  double    m_dPsgReqTime;     //请求时间
   double    m_dWaitTime;       //等待时间
   double	  m_dAllTime;        //乘梯时间
   PsgState  m_ePsgState;       //乘客状态
@@ -189,12 +189,12 @@ typedef struct  Passenger
 
   bool operator <(const Passenger& rhs) const // 升序排序时必须写的函数
   {
-    return (m_dReqTime < rhs.m_dReqTime);
+    return (m_dPsgReqTime < rhs.m_dPsgReqTime);
   }
 
   bool operator >(const Passenger& rhs) const // 降序排序时必须写的函数
   {
-    return (m_dReqTime > rhs.m_dReqTime);
+    return (m_dPsgReqTime > rhs.m_dPsgReqTime);
   }
 
   bool operator == (const Passenger& rhs) const
@@ -231,7 +231,7 @@ typedef struct RunItem
 
   bool operator == (const RunItem& rhs) 
   {
-    return ( m_iDestFlr == rhs.m_iDestFlr );
+    return ( m_iDestFlr == rhs.m_iDestFlr && m_eElvDir == rhs.m_eElvDir );
   }
 }sRunItem;
 

@@ -42,6 +42,7 @@ void CMWT::Core_Main()
   while ( !isAlgFinished() )  //所有人是否都已经到达目的层        
   {
     gSystemTime += SYSTEM_TIME_STEP;
+
     fprintf(m_AlgFile.m_OutputFilePtr, "\n++++++++++++++++Core_Main:+++%.2f++++++++++++++++\n",gSystemTime);
 
     //更新电梯状态
@@ -177,10 +178,10 @@ void CMWT::onClickOutBtn(sPassengerIterator& psg)
  
   //根据乘客外部请求生成申请实体
   out_req.m_iPassagerID = psg->m_iPsgID;
-  out_req.m_iReqCurFlr = psg->m_iReqCurFlr;
-  out_req.m_iReqDestFlr = psg->m_iDestFlr;
-  out_req.m_iReqTime = psg->m_dReqTime;
-  out_req.m_eReqDir = (psg->m_iDestFlr > psg->m_iReqCurFlr) ? DIR_UP : DIR_DOWN;
+  out_req.m_iReqCurFlr  = psg->m_iPsgCurFlr;
+  out_req.m_iReqDestFlr = psg->m_iPsgDestFlr;
+  out_req.m_dReqTime    = psg->m_dPsgReqTime;
+  out_req.m_eReqDir     = (psg->m_iPsgDestFlr > psg->m_iPsgCurFlr) ? DIR_UP : DIR_DOWN;
 
   //fprintf(m_AlgFile.m_OutputFilePtr, "onClickOutBtn:Psg(%2d)-ReqCurFlr(%2d)-SysTime(%.2f)\n",psg->m_iPsgID,psg->m_iReqCurFlr,gSystemTime);	
   
@@ -204,7 +205,7 @@ void CMWT::processOuterReqFlow()
   for( sPassengerIterator i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
     //乘客的请求时间与系统时间比较
-    if ( i->m_dReqTime < gSystemTime )
+    if ( i->m_dPsgReqTime < gSystemTime )
     {
       if ( i->m_ePsgState == PSG_NONE )
       {
