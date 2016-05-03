@@ -28,7 +28,11 @@
 #define ELVT_DOWN(x)  ( x==DOWN_ACC || x==DOWN_CONST || x==DOWN_DEC || x== DOWN_PAUSE )
 #define ELVT_STOP(x)  ( x==IDLE || x==UP_PAUSE || x==DOWN_PAUSE )
 
-#define LOGE(fm, ...) {fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__);printf(fm,__VA_ARGS__);}
+#define LOGE(fm, ...) {                                                    \
+                        fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__); \
+                      }
+
+//#define LOGE(fm, ...) {fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__);printf(fm,__VA_ARGS__);}
 
 /*********************************************************************
  * GLOBAL VALUE

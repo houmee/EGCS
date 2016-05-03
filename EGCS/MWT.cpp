@@ -60,17 +60,16 @@ void CMWT::Core_Main()
 
     //////////////////////////////////////////////////////////////////////////
     //Òì³£ÍË³ö
-    if ( gSystemTime > 1000)
+    if ( gSystemTime > 200)
     {
       m_AlgFile.CloseTools(1);
       LOGE("Run fail!\n");
-      getchar();
+      puts("Run fail!\n");
       exit(1);
     }
   }
-
   LOGE("Run successfully!\n");
-  getchar();
+  puts("Run successfully!\n");
 }
 
 /********************************************************************

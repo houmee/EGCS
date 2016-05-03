@@ -69,8 +69,13 @@ void CElevator::Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec)
     m_dLastSysTime = gSystemTime;
   }
 
+  if ( gSystemTime > m_dNextStateTime )
+    gotoNextDest();
+
   if ( ELVT_STOP(m_eCurState) )   //电梯处于待机、停靠状态，处理乘客
     processReqPsgFlow(psgVec);
+
+
 
   LOGE("updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_dLastStateTime,m_dNextStateTime);	
 }
@@ -94,8 +99,6 @@ void CElevator::updateRunInfo()
   {
     if ( gSystemTime > m_dLastStateTime )    //超过了电梯开关门时间
     { 
-      gotoNextDest();
-
       if ( m_iNextStopFlr != m_iCurFlr )      //如果下一停靠楼层不是当前楼层，更新状态和方向
       {
         m_eCurState = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
@@ -194,7 +197,7 @@ void CElevator::updateRunInfo()
       }
 
       m_isSchedule = false;
-      LOGE("updateRunInfo: Schedule is false.\n");
+      LOGE("updateRunInfo: Elvt(%d)-Schedule is false.\n", m_iElvtID);
     }
   }
 }
@@ -220,8 +223,8 @@ void CElevator::gotoNextDest()
     m_dCurRunDis  = 0;
     LOGE("gotoNextDest:Save LastItem-Elvt(%d)-NextStopFlr(%2d)->(%2d)\n",m_iElvtID,tmpItem.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
     
-    m_dLastSysTime  = m_dNextStateTime;    //
-    LOGE("gotoNextDest:Save Elvt(%d)-LastSysTime(%.2f)->(%.2f)\n",m_iElvtID,tmptime,m_dLastSysTime);	
+    //m_dLastSysTime  = m_dNextStateTime;    //
+    //LOGE("gotoNextDest:Save Elvt(%d)-LastSysTime(%.2f)->(%.2f)\n",m_iElvtID,tmptime,m_dLastSysTime);	
 
     //删除当前停靠点
     tarIter = queryElement( m_sRunTable,m_lastRunItem,tarIter );  
