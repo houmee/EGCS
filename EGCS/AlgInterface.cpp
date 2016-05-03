@@ -59,39 +59,39 @@ CAlgInterface::~CAlgInterface()
 *  @brief    : 
 *  @return   : void
 ********************************************************************/
-void CAlgInterface::testPsgFlow()
-{
-  sPassengerInfo psg0 = {0, 1, 8, DIR_UP  , 0.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg0 );
-  sPassengerInfo psg1 = {1, 2, 5, DIR_UP  , 0.3, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg1 );
-  sPassengerInfo psg2 = {2, 4,10, DIR_UP  , 0.4, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg2 );
-  sPassengerInfo psg3 = {3,10, 8, DIR_DOWN, 0.8, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg3 );
-  sPassengerInfo psg4 = {4, 3, 6, DIR_UP  , 1.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg4 );
-  sPassengerInfo psg5 = {5, 6, 5, DIR_DOWN, 1.3, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg5 );
-  sPassengerInfo psg6 = {6, 2,10, DIR_UP  , 1.9, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg6 );
-  sPassengerInfo psg7 = {7, 1, 3, DIR_UP  , 2.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg7 );
-  sPassengerInfo psg8 = {8, 3, 1, DIR_DOWN, 2.3, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg8 );
-  sPassengerInfo psg9 = {9, 4, 7, DIR_UP  , 3.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
-  insertElement( m_passengerVec, psg9 );
-
-  //////////////////////////////////////////////////////////////////////////
-  //测试脚本
-  sPassengerIterator psgIterEnd = m_passengerVec.end();
-  for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
-  {
-    LOGE( "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
-    LOGE("%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
-      i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
-  }
-}
+//void CAlgInterface::testPsgFlow()
+//{
+//  sPassengerInfo psg0 = {0, 1, 8, DIR_UP  , 0.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg0 );
+//  sPassengerInfo psg1 = {1, 2, 5, DIR_UP  , 0.3, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg1 );
+//  sPassengerInfo psg2 = {2, 4,10, DIR_UP  , 0.4, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg2 );
+//  sPassengerInfo psg3 = {3,10, 8, DIR_DOWN, 0.8, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg3 );
+//  sPassengerInfo psg4 = {4, 3, 6, DIR_UP  , 1.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg4 );
+//  sPassengerInfo psg5 = {5, 6, 5, DIR_DOWN, 1.3, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg5 );
+//  sPassengerInfo psg6 = {6, 2,10, DIR_UP  , 1.9, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg6 );
+//  sPassengerInfo psg7 = {7, 1, 3, DIR_UP  , 2.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg7 );
+//  sPassengerInfo psg8 = {8, 3, 1, DIR_DOWN, 2.3, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg8 );
+//  sPassengerInfo psg9 = {9, 4, 7, DIR_UP  , 3.1, 0.0, 0.0, PSG_NONE, PSG_ARRIVE_PLACE };
+//  insertElement( m_passengerVec, psg9 );
+//
+//  //////////////////////////////////////////////////////////////////////////
+//  //测试脚本
+//  sPassengerIterator psgIterEnd = m_passengerVec.end();
+//  for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
+//  {
+//    LOGE( "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
+//    LOGE("%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
+//      i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
+//  }
+//}
 
 /********************************************************************
 *  @name     : CAlgInterface::generatePsgFlow    
@@ -185,19 +185,20 @@ void CAlgInterface::generatePsgFlow()
     }	
     insertElement( m_passengerVec, psg );
    }
-  sortElement( m_passengerVec, psg); //根据请求时间排序
+  
 #endif
 
+  sortElement( m_passengerVec, psg); //根据请求时间排序
   //////////////////////////////////////////////////////////////////////////
   //测试脚本
   sPassengerIterator psgIterEnd = m_passengerVec.end();
   for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
-    LOGE("generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
+    LOGE("generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqDir(%d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir,i->m_dPsgReqTime);	
 
 #if defined (TEST)   
-    LOGE("%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
-      i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTimem_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
+    fprintf(m_AlgFile.m_PsgFilePtr,"%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
+      i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
 #endif 
   }
 }

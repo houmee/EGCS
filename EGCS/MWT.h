@@ -25,7 +25,7 @@ public:
   CMWT();
   ~CMWT(){};
 
-  void Core_Main();
+  bool Core_Main();
   void schedule();
   CElevatorIterator fitness(sOutRequestIterator& reqIter);
   void dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter);

@@ -82,7 +82,7 @@ extern double gSystemTime;
 #define PSG_ENTER_TIME			1				  //乘客进入/离开时间时间(s)
     
 
-//#define  TEST
+#define  TEST
 /*********************************************************************
  * ENUMS
  */

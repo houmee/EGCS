@@ -73,7 +73,7 @@ public:
   void testPsgFlow();
 
   //虚函数部分子类必须实现
-  virtual void Core_Main(){};
+  virtual bool Core_Main(){ return false;};
   virtual void schedule(){};        //调度
   virtual void fitness(){};         //适应度值
 

@@ -33,7 +33,7 @@ CMWT::CMWT()
 *  @brief    : 
 *  @return   : void
 ********************************************************************/ 
-void CMWT::Core_Main()
+bool CMWT::Core_Main()
 {
   generateElevatorVec();      //产生电梯群
   generatePsgFlow();          //产生乘客交通流
@@ -65,11 +65,12 @@ void CMWT::Core_Main()
       m_AlgFile.CloseTools(1);
       LOGE("Run fail!\n");
       puts("Run fail!\n");
-      exit(1);
+      return false;
     }
   }
   LOGE("Run successfully!\n");
   puts("Run successfully!\n");
+  return true;
 }
 
 /********************************************************************
