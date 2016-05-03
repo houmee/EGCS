@@ -17,6 +17,7 @@
 #define		COM_DEF_H
 
 #include "com_type.h"
+#include <stdarg.h>
 //#define NDEBUG 
 #include <assert.h>
 
@@ -27,11 +28,12 @@
 #define ELVT_DOWN(x)  ( x==DOWN_ACC || x==DOWN_CONST || x==DOWN_DEC || x== DOWN_PAUSE )
 #define ELVT_STOP(x)  ( x==IDLE || x==UP_PAUSE || x==DOWN_PAUSE )
 
+#define LOGE(fm, ...) {fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__);printf(fm,__VA_ARGS__);}
+
 /*********************************************************************
  * GLOBAL VALUE
  */
 extern double gSystemTime;
-extern uint8  gBatch;
 
 /*********************************************************************
  * CONSTANTS
@@ -122,9 +124,9 @@ enum ElvtRunState			//电梯箱体运行状态
 
 enum RunDir			//电梯运行方向（趋势）
 {
-	DIR_DOWN,				    //向上0
-	DIR_UP,					    //向下1
-	DIR_NONE				  //无方向性2
+  DIR_NONE,				    //无方向性0
+	DIR_UP,					    //向上1
+  DIR_DOWN				    //向下2
 };
 
 enum EvtType			//事件类型
@@ -158,6 +160,7 @@ typedef struct OutRequest
   uint8		      m_iReqDestFlr;      //外部请求目的楼层号
 	double		    m_dReqTime;         //外部请求时间
   uint16        m_iReqNum;          //相同请求同一时间请求次数
+  uint8         m_iReqElvtID;       //处理请求的电梯
 
   bool operator <(const OutRequest& rhs) const // 升序排序时必须写的函数
   {

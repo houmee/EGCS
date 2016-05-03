@@ -27,7 +27,7 @@ CElevator::CElevator(int id, CTools& tools)
   m_iNextStopFlr  = 1;
   m_dCurRunDis    = 0.0;
   m_iCurPsgNum    = 0;
-  m_dStartTime    = 0.0;
+  m_dLastSysTime  = 0.0;
   m_dNextStateTime = 0.0;
   m_dLastStateTime = 0.0;
   m_eCurState     = IDLE;
@@ -35,7 +35,7 @@ CElevator::CElevator(int id, CTools& tools)
   m_isSchedule    = false;
   m_canHandle     = false;
   m_isTrytoDispatch = false;
-  m_ElvtFile        = tools;
+  m_AlgFile        = tools;
   m_sRunTable.reserve(MAX_FLOOR_NUM);
 
   m_lastRunItem.m_eElvDir              = DIR_NONE;
@@ -57,19 +57,22 @@ CElevator::CElevator(int id, CTools& tools)
 ********************************************************************/ 
 void CElevator::Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec)
 {
-  fprintf(m_ElvtFile.m_OutputFilePtr, "\n--Elvt(%d) Main--\n", m_iElvtID);
-  fprintf(m_ElvtFile.m_OutputFilePtr, "updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_dLastStateTime,m_dNextStateTime);	
+  LOGE("\n--Elvt(%d) Main--\n", m_iElvtID);
+  LOGE("updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_dLastStateTime,m_dNextStateTime);	
 
   //////////////////////////////////////////////////////////////////////////
   //电梯运行主要部分
-  if ( ELVT_STOP(m_eCurState) )   //电梯处于待机、停靠状态，处理乘客
+  if ( !m_isSchedule )
   {
+    m_isSchedule = true;
+    LOGE("dispatch: LastSysTime(%.2f)->(%.2f)-Schedule(true)\n",m_dLastSysTime,gSystemTime);
+    m_dLastSysTime = gSystemTime;
+  }
+
+  if ( ELVT_STOP(m_eCurState) )   //电梯处于待机、停靠状态，处理乘客
     processReqPsgFlow(psgVec);
 
-    if ( gSystemTime > m_dLastStateTime )
-      gotoNextDest();
-  }
-  fprintf(m_ElvtFile.m_OutputFilePtr, "updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_dLastStateTime,m_dNextStateTime);	
+  LOGE("updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_dLastStateTime,m_dNextStateTime);	
 }
 
 /********************************************************************
@@ -82,6 +85,7 @@ void CElevator::updateRunInfo()
   uint16 runlen = 0;
   double runTime = 0, remainTime = 0;
 
+  LOGE("updateRunInfo:Elvt(%d)-CurState(%d)-SystemTime(%.2f)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iElvtID,m_eCurState,gSystemTime,m_dLastStateTime,m_dNextStateTime);
   //////////////////////////////////////////////////////////////////////////
   //由停止向运动变化
   //状态变化：1.IDLE->IDLE         2.PAUSE->PAUSE     3.IDLE->ACC           4.PAUSE->ACC
@@ -89,7 +93,9 @@ void CElevator::updateRunInfo()
   if ( ELVT_STOP(m_eCurState) ) //电梯在停止状态  
   {
     if ( gSystemTime > m_dLastStateTime )    //超过了电梯开关门时间
-    {   
+    { 
+      gotoNextDest();
+
       if ( m_iNextStopFlr != m_iCurFlr )      //如果下一停靠楼层不是当前楼层，更新状态和方向
       {
         m_eCurState = m_iNextStopFlr > m_iCurFlr ? UP_ACC : DOWN_ACC;
@@ -104,15 +110,19 @@ void CElevator::updateRunInfo()
 
           m_dLastStateTime = gSystemTime;     //没有任务的时候将时间刷新
           m_dNextStateTime = gSystemTime;
-          m_dStartTime     = gSystemTime;
+          m_dLastSysTime   = gSystemTime;
         }
-        else if ( m_lastRunItem.m_iDestFlr > m_iCurFlr )
-          m_eCurState = DOWN_PAUSE;
-        else if ( m_lastRunItem.m_iDestFlr < m_iCurFlr )
-          m_eCurState = UP_PAUSE;
-        else
-          m_eCurState = IDLE;
-
+      }
+    }
+    else
+    {
+      if ( m_lastRunItem.m_iDestFlr > m_iCurFlr )
+        m_eCurState = DOWN_PAUSE;
+      else if ( m_lastRunItem.m_iDestFlr < m_iCurFlr )
+        m_eCurState = UP_PAUSE;
+      else
+      {
+        m_eCurState = IDLE;
         m_eRundir   = DIR_NONE;
       }
     }
@@ -182,6 +192,9 @@ void CElevator::updateRunInfo()
         assert( m_eCurState == DOWN_DEC );
         m_eCurState = DOWN_PAUSE;
       }
+
+      m_isSchedule = false;
+      LOGE("updateRunInfo: Schedule is false.\n");
     }
   }
 }
@@ -202,21 +215,22 @@ void CElevator::gotoNextDest()
   {
     //保存当前停靠楼层信息
     tmpItem = m_lastRunItem;
-    tmptime = m_dStartTime;
+    tmptime = m_dLastSysTime;
     m_lastRunItem = m_sRunTable.at(0);
     m_dCurRunDis  = 0;
-    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:Save LastItem-NextStopFlr(%2d)->(%2d)\n",tmpItem.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
+    LOGE("gotoNextDest:Save LastItem-Elvt(%d)-NextStopFlr(%2d)->(%2d)\n",m_iElvtID,tmpItem.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
     
+    m_dLastSysTime  = m_dNextStateTime;    //
+    LOGE("gotoNextDest:Save Elvt(%d)-LastSysTime(%.2f)->(%.2f)\n",m_iElvtID,tmptime,m_dLastSysTime);	
+
     //删除当前停靠点
     tarIter = queryElement( m_sRunTable,m_lastRunItem,tarIter );  
-    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:Delete LastItem-ReqType(%d)-DestFlr(%d)\n", tarIter->m_eReqType, tarIter->m_iDestFlr);	
+    LOGE("gotoNextDest:Delete LastItem-Elvt(%d)-ReqType(%d)-DestFlr(%d)\n", m_iElvtID,tarIter->m_eReqType, tarIter->m_iDestFlr);	
     deleteRunTableItem( m_lastRunItem );
 
-    m_dStartTime  = m_dNextStateTime;
-    fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:Save StartTime(%.2f)->(%.2f)\n",tmptime,m_dStartTime);	
+    LOGE("gotoNextDest:Elvt(%d)-NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iElvtID,m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
+    showElevator();  
   }
-  fprintf(m_ElvtFile.m_OutputFilePtr, "gotoNextDest:NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
-  showElevator();  
 }
 
 
@@ -232,12 +246,6 @@ void CElevator::changeNextStop()
  
   if ( !m_isTrytoDispatch )         //只有在非TrytoDispatch操作时检查是否更新下一停靠楼层信息
   {
-    if ( m_dLastStateTime != m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME )
-    {
-      fprintf(m_ElvtFile.m_OutputFilePtr, "changeNextStop:Elvt(%d)-LastStateTime(%.2f)->(%.2f)\n",m_iElvtID,m_dLastStateTime, m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME);	
-      m_dLastStateTime = m_dStartTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
-    }
-
     if ( m_sRunTable.size() > 0 )   //如果存在下一停靠楼层任务
     {
       tmpFlr = m_iNextStopFlr;
@@ -246,24 +254,36 @@ void CElevator::changeNextStop()
       if ( m_sRunTable.at(0).m_iDestFlr != m_iNextStopFlr )   //如果下一停靠楼层不一致
       {
         m_iNextStopFlr   = m_sRunTable.at(0).m_iDestFlr;
-        m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
-        fprintf(m_ElvtFile.m_OutputFilePtr, "changeNextStop:Elvt(%d)-NextStopFlr(%2d)->(%2d)--NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpFlr,m_iNextStopFlr,tmpTime,m_dNextStateTime);
+        m_dLastStateTime = m_dLastSysTime;
+        m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + m_dLastStateTime;
+
+        LOGE("changeNextStop:Elvt(%d)-NextStopFlr(%2d)->(%2d)--NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpFlr,m_iNextStopFlr,tmpTime,m_dNextStateTime);
+        LOGE("changeNextStop:Elvt(%d)-LastStateTime(%.2f)->(%.2f)\n",m_iElvtID,m_dLastStateTime, m_dLastStateTime);	
       }
-      else
+      else  
       {
-        if( m_dNextStateTime != m_sRunTable.at(0).m_sTarVal.m_fWaitTime + m_dStartTime ) //如果停靠楼层一致但时间不同
+        if ( m_iNextStopFlr == m_iCurFlr )
         {
-          m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + gSystemTime;
-          fprintf(m_ElvtFile.m_OutputFilePtr, "changeNextStop:Elvt(%d)-NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpTime,m_dNextStateTime);
+          if ( m_dLastStateTime != m_dLastSysTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME )
+          {
+            LOGE("changeNextStop:Elvt(%d)-LastStateTime(%.2f)->(%.2f)\n",m_iElvtID,m_dLastStateTime, m_dLastSysTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME);	
+            m_dLastStateTime = m_dLastSysTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
+          }
+        }
+        
+        if( m_dNextStateTime != m_sRunTable.at(0).m_sTarVal.m_fWaitTime + m_dLastStateTime ) //如果停靠楼层一致但时间不同
+        {
+          m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + m_dLastStateTime;
+          LOGE("changeNextStop:Elvt(%d)-NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpTime,m_dNextStateTime);
         }
       }
       
     }
-    //else    //没有运行任务则停靠再最后一个任务的楼层
-    //{
-    //  m_iNextStopFlr    = m_iCurFlr;
-    //  m_dNextStateTime  = gSystemTime;
-    //}
+    else    //没有运行任务则停靠再最后一个任务的楼层
+    {
+      m_iNextStopFlr    = m_iCurFlr;
+      m_dNextStateTime  = gSystemTime;
+    }
   }
 }
 
@@ -280,11 +300,12 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
   sTargetVal tarVal = {0,0}, tmpTarVal={0,0};
 
   //将外部请求封装为运行表项，获取从当前位置到请求的目标值
-  if ( reqIter->m_iReqCurFlr == m_iCurFlr )
-    reqRunItem.m_eElvDir = DIR_NONE;
-  else
-    reqRunItem.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
+  //if ( reqIter->m_iReqCurFlr == m_iCurFlr )
+  //  reqRunItem.m_eElvDir = DIR_NONE;
+  //else
+  //  reqRunItem.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
 
+  reqRunItem.m_eElvDir  = reqIter->m_eReqDir;
   reqRunItem.m_eReqType = OUT_REQ;
   reqRunItem.m_iDestFlr = reqIter->m_iReqCurFlr;
 
@@ -323,6 +344,26 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
   return tarVal;     //返回目标值
 }
 
+
+/********************************************************************
+*  @name     : CElevator::acceptRunTableItem    
+*  @brief    : 
+*  @param    : sOutRequestIterator reqIter 
+*  @return   : void
+********************************************************************/
+void CElevator::acceptRunTableItem( sOutRequestIterator reqIter )
+{
+  sRunItem reqRunItem;
+  sRunItemIterator indIter;
+
+  reqRunItem.m_eReqType = OUT_REQ;
+  reqRunItem.m_iDestFlr = reqIter->m_iReqCurFlr;
+  reqRunItem.m_eElvDir  = reqIter->m_eReqDir;
+  
+  insertRunTableItem( reqRunItem );
+  showElevator();
+}
+
 /********************************************************************
 *  @name     : CElevator::onClickInnerBtn    
 *  @brief    : 
@@ -339,7 +380,7 @@ void CElevator::onClickInnerBtn(sPassengerIterator& psg)
   runItem.m_eElvDir = (psg->m_iPsgDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
   
   insertRunTableItem( runItem );
-  fprintf(m_ElvtFile.m_OutputFilePtr, "onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
+  LOGE("onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
 }
 
 /********************************************************************
@@ -350,6 +391,7 @@ void CElevator::onClickInnerBtn(sPassengerIterator& psg)
 ********************************************************************/ 
 void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
 {
+  bool isPsgTravel = false;
   sPassengerIterator psgIterEnd = psgVec.end();
 
   if ( m_iCurPsgNum > 0 )
@@ -369,20 +411,24 @@ void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
   for( sPassengerIterator i=psgVec.begin(); i != psgIterEnd;  ++i )
   {
     //如果乘客处于等待中且当前电梯已经到达停靠
-    if (i->m_ePsgState == PSG_WAIT && i->m_iPsgCurFlr == m_iCurFlr )
-      if (i->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM)
+    if ( i->m_ePsgState == PSG_WAIT && i->m_iPsgCurFlr == m_iCurFlr )
+    {
+      if ( i->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM )
       {
         psgEnter(i);
         onClickInnerBtn(i);
+        isPsgTravel = true;
       }
-      if ( i->m_ePsgReqDir != m_eRundir )
-      {
-        fprintf(m_ElvtFile.m_OutputFilePtr, "processInnerPsgFlow:Inner Req[Psg(%2d)-PsgDest(%2d)-CUrFlr(%2d)] is refused!\n", i->m_iPsgID, i->m_iPsgDestFlr,m_iCurFlr);
-      }
+      else if ( i->m_ePsgReqDir != m_eRundir )
+        LOGE("processInnerPsgFlow:Inner Req[Psg(%2d)-PsgDest(%2d)-PsgCurFlr(%2d)] is refused!\n", i->m_iPsgID, i->m_iPsgDestFlr,i->m_iPsgCurFlr);
+    }
   }
 
-  fprintf(m_ElvtFile.m_OutputFilePtr, "processInnerPsgFlow:\n");
-  showElevator();
+  if ( isPsgTravel )
+  {
+    LOGE("processInnerPsgFlow:\n");
+    showElevator();
+  }
 }
 
 /********************************************************************
@@ -398,7 +444,7 @@ void CElevator::psgLeave(sPassengerIterator& psg)
   psg->m_ePsgState = PSG_ARRIVE;
   psg->m_dAllTime = gSystemTime - psg->m_dPsgReqTime;
   psg->m_iCurPlace = PSG_ARRIVE_PLACE;
-  fprintf(m_ElvtFile.m_OutputFilePtr, "psgLeave:Psg(%2d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
+  LOGE("psgLeave:Psg(%2d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
 }
 
 /********************************************************************
@@ -413,7 +459,7 @@ void CElevator::psgEnter(sPassengerIterator& psg)
   psg->m_dWaitTime = gSystemTime - psg->m_dPsgReqTime;
   psg->m_ePsgState = PSG_TRAVEL;
   psg->m_iCurPlace = m_iElvtID;
-  fprintf(m_ElvtFile.m_OutputFilePtr, "psgEnter:Psg(%2d) Enters Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
+  LOGE("psgEnter:Psg(%2d) Enters Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
 }
 
 /********************************************************************
@@ -428,17 +474,39 @@ sTargetVal CElevator::runfromXtoY(sRunItem x, sRunItem y)
   sTargetVal targetVal = {0.0,0.0};
   uint8 intervalFlr = abs(x.m_iDestFlr - y.m_iDestFlr);  //楼层间距
 
+  //if ( intervalFlr > 0 )
+  //{
+  //  if ( intervalFlr == 1 )
+  //  {
+  //    targetVal.m_fWaitTime = ACCELERATE_TIME + DECELERATE_TIME + CONST_SPEED_TIME + OPEN_CLOSE_TIME+PSG_ENTER_TIME;
+  //    targetVal.m_fEnergy   = START_STOP_ENERGY + GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
+  //  }
+  //  else if ( intervalFlr > 1 )
+  //  {
+  //    //等待时间包括运行时间和开关门时间
+  //    targetVal.m_fWaitTime = (ACCELERATE_TIME + DECELERATE_TIME + OPEN_CLOSE_TIME + PSG_ENTER_TIME +
+  //      (intervalFlr-2)*ONE_FLOOR_TIME + 2*REMAIN_GAP_TIME);
+  //    //能耗包括加减速能耗和载客能耗
+  //    targetVal.m_fEnergy = (GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*
+  //      ((intervalFlr-2)*FLOOR_HEIGHT + 2*REMAIN_GAP_LENGTH) +START_STOP_ENERGY);
+  //  }  
+  //}
+  //else
+  //{
+  //  targetVal.m_fWaitTime = OPEN_CLOSE_TIME + PSG_ENTER_TIME;
+  //  targetVal.m_fEnergy   = 0;
+  //}
   if ( intervalFlr > 0 )
   {
     if ( intervalFlr == 1 )
     {
-      targetVal.m_fWaitTime = ACCELERATE_TIME + DECELERATE_TIME + CONST_SPEED_TIME + OPEN_CLOSE_TIME+PSG_ENTER_TIME;
+      targetVal.m_fWaitTime = ACCELERATE_TIME + DECELERATE_TIME + CONST_SPEED_TIME;
       targetVal.m_fEnergy   = START_STOP_ENERGY + GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
     }
     else if ( intervalFlr > 1 )
     {
       //等待时间包括运行时间和开关门时间
-      targetVal.m_fWaitTime = (ACCELERATE_TIME + DECELERATE_TIME + OPEN_CLOSE_TIME + PSG_ENTER_TIME +
+      targetVal.m_fWaitTime = (ACCELERATE_TIME + DECELERATE_TIME  +
         (intervalFlr-2)*ONE_FLOOR_TIME + 2*REMAIN_GAP_TIME);
       //能耗包括加减速能耗和载客能耗
       targetVal.m_fEnergy = (GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*
@@ -447,7 +515,7 @@ sTargetVal CElevator::runfromXtoY(sRunItem x, sRunItem y)
   }
   else
   {
-    targetVal.m_fWaitTime = OPEN_CLOSE_TIME + PSG_ENTER_TIME;
+    targetVal.m_fWaitTime = 0;
     targetVal.m_fEnergy   = 0;
   }
   return targetVal;
@@ -551,33 +619,46 @@ void CElevator::getTaskPriority(sRunItem& ind)
   //电梯待机和上行的区别在于即使电梯所在楼层和请求楼层在一层，但是上行时已经启动，本次请求的优先级会很低
   if ( m_eCurState == IDLE )        //如果电梯待机
   {
-    if ( ind.m_eElvDir == DIR_UP )
-      ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
-    else if (ind.m_eElvDir == DIR_DOWN )
-      ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
+    if ( ind.m_iDestFlr == m_iCurFlr )
+      ind.m_iPriority = 0;
     else
-      ind.m_iPriority = 0;          //如果请求为NONE，说明就在本层，优先级最高
+    {
+      if ( ind.m_eElvDir == DIR_UP )
+        ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
+      else if (ind.m_eElvDir == DIR_DOWN )
+        ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
+      else
+        ind.m_iPriority = 0;          //如果请求为NONE，说明就在本层，优先级最高
+    }
   }
-  else if ( ELVT_UP(m_eCurState) )  //电梯上行
+  else if ( ELVT_UP(m_eCurState) )    //电梯上行
   {
-    if ( ind.m_eElvDir == DIR_UP )
-      ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
-    else if (ind.m_eElvDir == DIR_DOWN )
-      ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
-    else                            //如果请求为NONE，说明电梯上行刚过，优先级很低
-      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;    
+    if ( ind.m_iDestFlr <= m_iCurFlr )  //如果电梯已经向上运行，那么在电梯楼层下面的请求优先级很很低
+      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
+    else
+    {
+      if ( ind.m_eElvDir == DIR_UP )
+        ind.m_iPriority = ind.m_iDestFlr;
+      else if (ind.m_eElvDir == DIR_DOWN )
+        ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
+      else                            
+        ind.m_iPriority = 0x7F;    
+    }
   }
   else if ( ELVT_DOWN(m_eCurState) )
   {
-    if (ind.m_eElvDir == DIR_UP )
-      ind.m_iPriority = ind.m_iDestFlr;
-    else if (ind.m_eElvDir == DIR_DOWN )
-      ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? -ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
-    else
+    if ( ind.m_iDestFlr >= m_iCurFlr )  //如果电梯已经向下运行，那么在电梯楼层上面的请求优先级很很低
       ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
+    else
+    {
+      if (ind.m_eElvDir == DIR_UP )
+        ind.m_iPriority = ind.m_iDestFlr;
+      else if (ind.m_eElvDir == DIR_DOWN )
+        ind.m_iPriority = -ind.m_iDestFlr ;
+      else
+        ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
+    }
   }
-  else
-    ind.m_iPriority = 0x7F;
 }
 
 /********************************************************************
@@ -590,8 +671,8 @@ void CElevator::showElevator()
   sRunItemIterator end = m_sRunTable.end();
   for( sRunItemIterator  i=m_sRunTable.begin(); i != end;  ++i )
   {
-    fprintf(m_ElvtFile.m_OutputFilePtr, "showElevator:ReqType(%d)-eElvDir(%d)-DestFlr(%d)-Time(%.2f)\n",
-      i->m_eReqType,i->m_eElvDir,i->m_iDestFlr,i->m_sTarVal.m_fWaitTime);	
+    LOGE("showElevator:ReqType(%d)-eElvDir(%d)-DestFlr(%d)-Priority(%2d)-Time(%.2f)\n",
+      i->m_eReqType,i->m_eElvDir,i->m_iDestFlr,i->m_iPriority,i->m_sTarVal.m_fWaitTime);	
   }
 }
 /*********************************************************************

@@ -43,7 +43,7 @@ void CMWT::Core_Main()
   {
     gSystemTime += SYSTEM_TIME_STEP;
 
-    fprintf(m_AlgFile.m_OutputFilePtr, "\n++++++++++++++++Core_Main:+++%.2f++++++++++++++++\n",gSystemTime);
+    LOGE("\n++++++++++++++++Core_Main:+++%.2f++++++++++++++++\n",gSystemTime);
 
     //更新电梯状态
     CElevatorIterator elvtIterEnd = m_elevatorVec.end();
@@ -63,14 +63,13 @@ void CMWT::Core_Main()
     if ( gSystemTime > 1000)
     {
       m_AlgFile.CloseTools(1);
-      printf("Run fail!\n");
+      LOGE("Run fail!\n");
       getchar();
       exit(1);
     }
   }
 
-  printf("Run successfully!\n");
-  fprintf(m_AlgFile.m_OutputFilePtr, "Run successfully!\n");
+  LOGE("Run successfully!\n");
   getchar();
 }
 
@@ -81,14 +80,18 @@ void CMWT::Core_Main()
 ********************************************************************/ 
 void CMWT::schedule()
 {
+  CElevatorIterator elvtIter;
+
   sOutRequestIterator reqIterEnd = m_outReqVec.end();
   for( sOutRequestIterator i=m_outReqVec.begin(); i != reqIterEnd;  ++i )
-    dispatch(i,fitness(i));       //处理每一个请求
+  {
+    elvtIter = fitness(i);
+    dispatch(i,elvtIter);       //处理每一个请求
+    //i->m_iReqElvtID = elvtIter->m_iElvtID;
+  }
   
   if ( m_outReqVec.size() > 0 )   //处理完所有请求，清除请求列表
     m_outReqVec.clear(); 
-  
-  gBatch++;
 }
  
 /********************************************************************
@@ -115,7 +118,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
     if ( i->m_iCurFlr == reqIter->m_iReqCurFlr && ELVT_STOP(i->m_eCurState) && i->m_iCurPsgNum < MAX_INNER_PSG_NUM )
     {
       bestElvtIter = i;
-      fprintf(m_AlgFile.m_OutputFilePtr, "dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
+      LOGE( "dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
       return bestElvtIter;
     }
   }
@@ -140,7 +143,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 
   }
 
-  fprintf(m_AlgFile.m_OutputFilePtr, "dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
+  LOGE("\ndispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
   return bestElvtIter;
 }
 
@@ -152,18 +155,14 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 ********************************************************************/ 
 void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
 {
-  sRunItem runInd;
-  sRunItemIterator indIter;
-
-  runInd.m_eReqType = OUT_REQ;
-  runInd.m_iDestFlr = reqIter->m_iReqCurFlr;
-  if ( reqIter->m_iReqCurFlr == elvtIter->m_iCurFlr )
-    runInd.m_eElvDir = DIR_NONE;
-  else
-    runInd.m_eElvDir  =( reqIter->m_iReqCurFlr > elvtIter->m_iCurFlr ) ? DIR_UP : DIR_DOWN;
-
-  elvtIter->insertRunTableItem( runInd );       //将外部呼号请求推送给电梯
-  elvtIter->showElevator();
+  if ( !elvtIter->m_isSchedule )
+  {
+    elvtIter->m_isSchedule = true;
+    LOGE("dispatch: LastSysTime(%.2f)->(%.2f)-Schedule(true)\n",elvtIter->m_dLastSysTime,gSystemTime);
+    elvtIter->m_dLastSysTime = gSystemTime;
+  }
+  
+  elvtIter->acceptRunTableItem(reqIter);
 }
 
 /********************************************************************
@@ -181,9 +180,9 @@ void CMWT::onClickOutBtn(sPassengerIterator& psg)
   out_req.m_iReqCurFlr  = psg->m_iPsgCurFlr;
   out_req.m_iReqDestFlr = psg->m_iPsgDestFlr;
   out_req.m_dReqTime    = psg->m_dPsgReqTime;
-  out_req.m_eReqDir     = (psg->m_iPsgDestFlr > psg->m_iPsgCurFlr) ? DIR_UP : DIR_DOWN;
+  out_req.m_eReqDir     = (psg->m_iPsgDestFlr > psg->m_iPsgCurFlr) ? DIR_UP : DIR_DOWN; 
 
-  //fprintf(m_AlgFile.m_OutputFilePtr, "onClickOutBtn:Psg(%2d)-ReqCurFlr(%2d)-SysTime(%.2f)\n",psg->m_iPsgID,psg->m_iReqCurFlr,gSystemTime);	
+  LOGE("onClickOutBtn:Psg(%2d)-[ReqCurFlr(%2d)-ReqDestFlr(%2d)-ReqDir(%d)]\n",psg->m_iPsgID,psg->m_iPsgCurFlr,psg->m_iPsgDestFlr,out_req.m_eReqDir);	
   
   if ( queryElement( m_outReqVec,out_req,reqIter ) != m_outReqVec.end() )
     return;

@@ -21,7 +21,6 @@
  */
 int    gUnusedRand = (srand((unsigned)time(NULL)),0);
 double gSystemTime;        //系统时间
-uint8  gBatch;
 
 /*********************************************************************
  * PUBLIC FUNCTIONS
@@ -88,8 +87,8 @@ void CAlgInterface::testPsgFlow()
   sPassengerIterator psgIterEnd = m_passengerVec.end();
   for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
-    fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
-    fprintf(m_AlgFile.m_PsgFilePtr, "%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
+    LOGE( "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
+    LOGE("%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
       i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
   }
 }
@@ -194,10 +193,10 @@ void CAlgInterface::generatePsgFlow()
   sPassengerIterator psgIterEnd = m_passengerVec.end();
   for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
-    fprintf(m_AlgFile.m_OutputFilePtr, "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
+    LOGE("generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
 
 #if defined (TEST)   
-    fprintf(m_AlgFile.m_PsgFilePtr, "%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
+    LOGE("%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
       i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTimem_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
 #endif 
   }
