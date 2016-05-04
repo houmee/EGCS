@@ -44,7 +44,6 @@ CElevator::CElevator(int id, CTools& tools)
   m_lastRunItem.m_iPriority            = 0x7F;
   m_lastRunItem.m_sTarVal.m_fEnergy    = 0;
   m_lastRunItem.m_sTarVal.m_fWaitTime  = 0;
-  //insertRunTableItem( m_lastRunItem );
 }
 
 /********************************************************************
@@ -58,14 +57,14 @@ CElevator::CElevator(int id, CTools& tools)
 void CElevator::Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec)
 {
   LOGE("\n--Elvt(%d) Main--\n", m_iElvtID);
-  LOGE("updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_dLastStateTime,m_dNextStateTime);	
+  LOGE("updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-CurVol(%2d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_iCurPsgNum,m_dLastStateTime,m_dNextStateTime);	
 
   //////////////////////////////////////////////////////////////////////////
   //电梯运行主要部分
   if ( !m_isSchedule )
   {
     m_isSchedule = true;
-    LOGE("Elevator_Main: LastSysTime(%.2f)->(%.2f)-Schedule(true)\n",m_dLastSysTime,gSystemTime);
+    LOGA("Elevator_Main: LastSysTime(%.2f)->(%.2f)-Schedule(true)\n",m_dLastSysTime,gSystemTime);
     m_dLastSysTime = gSystemTime;
   }
 
@@ -76,8 +75,9 @@ void CElevator::Elevator_Main(sOutRequestVec& reqVec, sPassengerInfoVec& psgVec)
     processReqPsgFlow(psgVec);
 
 
-
-  LOGE("updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_dLastStateTime,m_dNextStateTime);	
+  LOGE("Elevator_Main\n");
+  showElevator();
+  LOGE("updateRunInfo:CurFlr(%2d)-NextFlr(%d)-RunDis(%.2f)-CurState(%d)-CurDir(%d)-CurVol(%2d)-LastStateTime(%.2f)-NextStateTime(%.2f)\n",m_iCurFlr,m_iNextStopFlr,m_dCurRunDis, m_eCurState,m_eRundir,m_iCurPsgNum,m_dLastStateTime,m_dNextStateTime);	
 }
 
 /********************************************************************
@@ -224,18 +224,18 @@ void CElevator::gotoNextDest()
     tmptime = m_dLastSysTime;
     m_lastRunItem = m_sRunTable.at(0);
     m_dCurRunDis  = 0;
-    LOGE("gotoNextDest:Save LastItem-Elvt(%d)-NextStopFlr(%2d)->(%2d)\n",m_iElvtID,tmpItem.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
+    LOGA("gotoNextDest:Save LastItem-Elvt(%d)-NextStopFlr(%2d)->(%2d)\n",m_iElvtID,tmpItem.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
     
     //m_dLastSysTime  = m_dNextStateTime;    //
     //LOGE("gotoNextDest:Save Elvt(%d)-LastSysTime(%.2f)->(%.2f)\n",m_iElvtID,tmptime,m_dLastSysTime);	
 
     //删除当前停靠点
     tarIter = queryElement( m_sRunTable,m_lastRunItem,tarIter );  
-    LOGE("gotoNextDest:Delete LastItem-Elvt(%d)-ReqType(%d)-DestFlr(%d)\n", m_iElvtID,tarIter->m_eReqType, tarIter->m_iDestFlr);	
+    LOGA("gotoNextDest:Delete LastItem-Elvt(%d)-ReqType(%d)-DestFlr(%d)\n", m_iElvtID,tarIter->m_eReqType, tarIter->m_iDestFlr);	
     deleteRunTableItem( m_lastRunItem );
 
-    LOGE("gotoNextDest:Elvt(%d)-NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iElvtID,m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
-    showElevator();  
+    LOGA("gotoNextDest:Elvt(%d)-NextStopFlr(%2d)-Rundir(%d)-NextStateTime(%.2f)\n",m_iElvtID,m_iNextStopFlr,m_eCurState,m_dNextStateTime);	
+    //showElevator();  
   }
 }
 
@@ -265,30 +265,36 @@ void CElevator::changeNextStop()
         
         if ( ELVT_STOP(m_eCurState) )
         {
-          if ( m_eRundir = DIR_UP )
+          if ( m_eRundir == DIR_UP )
           {
             if ( m_sRunTable.at(0).m_iDestFlr < m_iCurFlr )
             {
               m_eRundir   = DIR_NONE;
               m_eCurState = IDLE;
+              
+              LOGA("changeNextStop:Elvt(%d) changes dir-DestFlr(%2d)->CurFlr(%2d)-Rundir(%d)-CurState(%d)\n",
+                m_iElvtID,m_sRunTable.at(0).m_iDestFlr,m_iCurFlr,m_eRundir,m_eCurState);
             }
           }
-          else if ( m_eRundir = DIR_DOWN )
+          else if ( m_eRundir == DIR_DOWN )
           {          
             if ( m_sRunTable.at(0).m_iDestFlr > m_iCurFlr )
             {
               m_eRundir   = DIR_NONE;
               m_eCurState = IDLE;
+
+              LOGA("changeNextStop:Elvt(%d) changes dir-DestFlr(%2d)->CurFlr(%2d)-Rundir(%d)-CurState(%d)\n",
+                m_iElvtID,m_sRunTable.at(0).m_iDestFlr,m_iCurFlr,m_eRundir,m_eCurState);
             }
           }
           
-          LOGE("changeNextStop:Elvt(%d)changes dir-DestFlr(%2d)->CurFlr(%2d)-Rundir(%d)-CurState(%d)\n",
+          LOGA("changeNextStop:Elvt(%d) changes dir-DestFlr(%2d)->CurFlr(%2d)-Rundir(%d)-CurState(%d)\n",
                 m_iElvtID,m_sRunTable.at(0).m_iDestFlr,m_iCurFlr,m_eRundir,m_eCurState);
         }
  
 
-        LOGE("changeNextStop:Elvt(%d)-NextStopFlr(%2d)->(%2d)--NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpFlr,m_iNextStopFlr,tmpTime,m_dNextStateTime);
-        LOGE("changeNextStop:Elvt(%d)-LastStateTime(%.2f)->(%.2f)\n",m_iElvtID,m_dLastStateTime, m_dLastStateTime);	
+        LOGA("changeNextStop:Elvt(%d)-NextStopFlr(%2d)->(%2d)--NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpFlr,m_iNextStopFlr,tmpTime,m_dNextStateTime);
+        LOGA("changeNextStop:Elvt(%d)-LastStateTime(%.2f)->(%.2f)\n",m_iElvtID,m_dLastStateTime, m_dLastStateTime);	
       }
       else  
       {
@@ -296,7 +302,7 @@ void CElevator::changeNextStop()
         {
           if ( m_dLastStateTime != m_dLastSysTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME )
           {
-            LOGE("changeNextStop:Elvt(%d)-LastStateTime(%.2f)->(%.2f)\n",m_iElvtID,m_dLastStateTime, m_dLastSysTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME);	
+            LOGA("changeNextStop:Elvt(%d)-LastStateTime(%.2f)->(%.2f)\n",m_iElvtID,m_dLastStateTime, m_dLastSysTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME);	
             m_dLastStateTime = m_dLastSysTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME;
           }
         }
@@ -304,7 +310,7 @@ void CElevator::changeNextStop()
         if( m_dNextStateTime != m_sRunTable.at(0).m_sTarVal.m_fWaitTime + m_dLastStateTime ) //如果停靠楼层一致但时间不同
         {
           m_dNextStateTime = m_sRunTable.at(0).m_sTarVal.m_fWaitTime + m_dLastStateTime;
-          LOGE("changeNextStop:Elvt(%d)-NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpTime,m_dNextStateTime);
+          LOGA("changeNextStop:Elvt(%d)-NextStateTime(%.2f)->(%.2f)\n",m_iElvtID,tmpTime,m_dNextStateTime);
         }
       }
       
@@ -412,7 +418,7 @@ void CElevator::onClickInnerBtn(sPassengerIterator& psg)
   runItem.m_eElvDir = (psg->m_iPsgDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
   
   insertRunTableItem( runItem );
-  LOGE("onClickInnerBtn:Inner Psg(%2d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
+  LOGA("onClickInnerBtn:Inner Psg(%3d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
 }
 
 /********************************************************************
@@ -445,21 +451,32 @@ void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
     //如果乘客处于等待中且当前电梯已经到达停靠
     if ( i->m_ePsgState == PSG_WAIT && i->m_iPsgCurFlr == m_iCurFlr )
     {
-      if ( i->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE  && (m_iCurPsgNum+1) <= MAX_INNER_PSG_NUM )
+      if ( m_iCurPsgNum <  MAX_INNER_PSG_NUM )
       {
-        psgEnter(i);
-        onClickInnerBtn(i);
-        isPsgTravel = true;
+        if ( i->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE )
+        {
+          psgEnter(i);
+          onClickInnerBtn(i);
+          isPsgTravel = true;
+        }
+        else if ( i->m_ePsgReqDir != m_eRundir )
+        {
+          LOGA("processInnerPsgFlow:Inner Req[Psg(%3d)-PsgDest(%2d)-PsgCurFlr(%2d)] is denied!\n", i->m_iPsgID, i->m_iPsgDestFlr,i->m_iPsgCurFlr);
+        }
       }
-      else if ( i->m_ePsgReqDir != m_eRundir )
-        LOGE("processInnerPsgFlow:Inner Req[Psg(%2d)-PsgDest(%2d)-PsgCurFlr(%2d)] is refused!\n", i->m_iPsgID, i->m_iPsgDestFlr,i->m_iPsgCurFlr);
+      else if ( m_iCurPsgNum ==  MAX_INNER_PSG_NUM )
+      {
+        i->m_iCurPlace = 0x5A;
+        i->m_ePsgState = PSG_NONE;
+        LOGA("processInnerPsgFlow:Elvt is full,Psg(%3d)-CurPlace(%3d)-PsgState(%d)is refused!\n",i->m_iPsgID,i->m_iCurPlace,i->m_ePsgState);
+      }
     }
   }
 
   if ( isPsgTravel )
   {
-    LOGE("processInnerPsgFlow:\n");
-    showElevator();
+    LOGA("processInnerPsgFlow:\n");
+    //showElevator();
   }
 }
 
@@ -476,7 +493,7 @@ void CElevator::psgLeave(sPassengerIterator& psg)
   psg->m_ePsgState = PSG_ARRIVE;
   psg->m_dAllTime = gSystemTime - psg->m_dPsgReqTime;
   psg->m_iCurPlace = PSG_ARRIVE_PLACE;
-  LOGE("psgLeave:Psg(%2d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
+  LOGA("psgLeave:Psg(%3d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
 }
 
 /********************************************************************
@@ -491,7 +508,7 @@ void CElevator::psgEnter(sPassengerIterator& psg)
   psg->m_dWaitTime = gSystemTime - psg->m_dPsgReqTime;
   psg->m_ePsgState = PSG_TRAVEL;
   psg->m_iCurPlace = m_iElvtID;
-  LOGE("psgEnter:Psg(%2d) Enters Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
+  LOGA("psgEnter:Psg(%3d) Enters Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
 }
 
 /********************************************************************
@@ -506,28 +523,6 @@ sTargetVal CElevator::runfromXtoY(sRunItem x, sRunItem y)
   sTargetVal targetVal = {0.0,0.0};
   uint8 intervalFlr = abs(x.m_iDestFlr - y.m_iDestFlr);  //楼层间距
 
-  //if ( intervalFlr > 0 )
-  //{
-  //  if ( intervalFlr == 1 )
-  //  {
-  //    targetVal.m_fWaitTime = ACCELERATE_TIME + DECELERATE_TIME + CONST_SPEED_TIME + OPEN_CLOSE_TIME+PSG_ENTER_TIME;
-  //    targetVal.m_fEnergy   = START_STOP_ENERGY + GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
-  //  }
-  //  else if ( intervalFlr > 1 )
-  //  {
-  //    //等待时间包括运行时间和开关门时间
-  //    targetVal.m_fWaitTime = (ACCELERATE_TIME + DECELERATE_TIME + OPEN_CLOSE_TIME + PSG_ENTER_TIME +
-  //      (intervalFlr-2)*ONE_FLOOR_TIME + 2*REMAIN_GAP_TIME);
-  //    //能耗包括加减速能耗和载客能耗
-  //    targetVal.m_fEnergy = (GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*
-  //      ((intervalFlr-2)*FLOOR_HEIGHT + 2*REMAIN_GAP_LENGTH) +START_STOP_ENERGY);
-  //  }  
-  //}
-  //else
-  //{
-  //  targetVal.m_fWaitTime = OPEN_CLOSE_TIME + PSG_ENTER_TIME;
-  //  targetVal.m_fEnergy   = 0;
-  //}
   if ( intervalFlr > 0 )
   {
     if ( intervalFlr == 1 )
@@ -560,22 +555,9 @@ sTargetVal CElevator::runfromXtoY(sRunItem x, sRunItem y)
 ********************************************************************/ 
 void CElevator::updateRunTable()
 {
-  sRunItem preRunInd,nowRunInd, tmpItem={IN_REQ,0,DIR_NONE,1};
+  sRunItem preRunInd,nowRunInd;
+
   sRunItemIterator end = m_sRunTable.end();
-
-  //for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )
-  //{
-  //  tmpItem = *i;
-  //  getTaskPriority(tmpItem);
-  //}
-
-  for (uint8 i=0; i<m_sRunTable.size(); i++)
-  {
-    getTaskPriority(m_sRunTable.at(i));
-  }
-
-  sortElement(m_sRunTable,tmpItem);
-
   for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )
   {
     if ( i == m_sRunTable.begin() )
@@ -598,24 +580,24 @@ void CElevator::updateRunTable()
 *  @param    : sRunIndex runInd 
 *  @return   : void
 ********************************************************************/ 
-void CElevator::insertRunTableItem( sRunItem runInd )
+void CElevator::insertRunTableItem( sRunItem runItem )
 {
   sRunItemIterator indIter;
 
-  if ( runInd.m_eReqType == IN_REQ )
+  if ( runItem.m_eReqType == IN_REQ )
   {
     if ( m_eCurState == IDLE || m_eCurState == DOWN_PAUSE || m_eCurState == UP_PAUSE ||
-       ( runInd.m_eElvDir == DIR_DOWN && ELVT_DOWN(m_eCurState)) ||
-       ( runInd.m_eElvDir == DIR_UP   && ELVT_UP(m_eCurState))
+       ( runItem.m_eElvDir == DIR_DOWN && ELVT_DOWN(m_eCurState)) ||
+       ( runItem.m_eElvDir == DIR_UP   && ELVT_UP(m_eCurState))
        )
     {
-      if (queryElement(m_sRunTable,runInd,indIter) != m_sRunTable.end())    //迭代器一般用!做比较
+      if (queryElement(m_sRunTable,runItem,indIter) != m_sRunTable.end())    //迭代器一般用!做比较
         return ;
       else
       {
-        getTaskPriority( runInd );
-        insertElement( m_sRunTable, runInd );
-        sortElement( m_sRunTable, runInd );
+        insertElement( m_sRunTable, runItem );
+        updateItemPriority();
+        sortElement( m_sRunTable, runItem );
         updateRunTable();
         changeNextStop();
       }
@@ -623,13 +605,13 @@ void CElevator::insertRunTableItem( sRunItem runInd )
   }
   else
   {
-    if ( queryElement(m_sRunTable,runInd,indIter) != m_sRunTable.end() )
+    if ( queryElement(m_sRunTable,runItem,indIter) != m_sRunTable.end() )
       return;
     else
     {
-      getTaskPriority( runInd );
-      insertElement( m_sRunTable, runInd );
-      sortElement( m_sRunTable, runInd );
+      insertElement( m_sRunTable, runItem );
+      updateItemPriority();
+      sortElement( m_sRunTable, runItem );
       updateRunTable();
       changeNextStop();
     }
@@ -643,11 +625,11 @@ void CElevator::insertRunTableItem( sRunItem runInd )
 *  @param    : sRunIndex runInd 
 *  @return   : void
 ********************************************************************/ 
-void CElevator::deleteRunTableItem( sRunItem runInd )
+void CElevator::deleteRunTableItem( sRunItem runItem )
 {
   sRunItemIterator tarInd;
-  deleteElement( m_sRunTable,runInd,tarInd );
-  sortElement( m_sRunTable, runInd );
+  deleteElement( m_sRunTable,runItem,tarInd );
+  sortElement( m_sRunTable, runItem );
   updateRunTable();
   changeNextStop();
 }
@@ -655,65 +637,145 @@ void CElevator::deleteRunTableItem( sRunItem runInd )
 /********************************************************************
 *  @name     : getTaskPriority    
 *  @brief    : calculate priority according to current dir and request dir
-*  @param    : ind 
 *  @return   : void
 ********************************************************************/ 
-void CElevator::getTaskPriority(sRunItem& ind)
+void CElevator::updateItemPriority()
 {
+  uint8 tmpFlr=MAX_FLOOR_NUM;
+  RunDir runDir=DIR_NONE;
+
+  if ( m_sRunTable.size() > 0 )   //只有运行列表存在表项时才会更新
+  {
+    sRunItemIterator end = m_sRunTable.end();
+    //////////////////////////////////////////////////////////////////////////
+    //确定潜在方向
+    if ( m_eCurState == IDLE )
+    {
+      assert( m_eRundir == DIR_NONE );      //待机的时候电梯肯定没有方向
+
+      for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )
+      {
+        if ( m_iCurFlr == i->m_iDestFlr )   //如果下一个运行目的楼层就是当前楼层
+        {
+          runDir = i->m_eElvDir;
+          break;
+        }
+        else if ( abs(i->m_iDestFlr-m_iCurFlr) < tmpFlr )
+        {
+          runDir = m_iCurFlr>i->m_iDestFlr ? DIR_DOWN : DIR_UP;
+          if ( runDir == i->m_eElvDir )
+            tmpFlr = abs(m_iCurFlr-i->m_iDestFlr);
+        }
+      }
+    }
+    else
+      runDir = m_eRundir;
+
+    //////////////////////////////////////////////////////////////////////////
+    //根据方向和楼层求优先级
+    for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )
+    {
+      if ( runDir == DIR_UP )         //如果运行列表方向向上
+      {
+        if ( i->m_iDestFlr == m_iCurFlr && (m_eCurState == IDLE || m_eCurState == UP_PAUSE) )   //当电梯向上停靠或待机，表项目的楼层与当前楼层一致时，优先级最高
+            i->m_iPriority = 0;
+        else                                //在其他状态，比如方向向下，或向上加速、匀速时，求解优先级
+        {
+          if ( i->m_iDestFlr > m_iCurFlr )  
+          {
+            if ( i->m_eElvDir == DIR_UP )         //方向向上且比当前楼层高
+              i->m_iPriority = i->m_iDestFlr;     //p = i;
+            else if ( i->m_eElvDir == DIR_DOWN )  //方向向下且比当前楼层高
+              i->m_iPriority = 2*MAX_FLOOR_NUM - i->m_iDestFlr;   //p = 2*MAX-i;
+          }
+          else
+          {
+            if ( i->m_eElvDir == DIR_UP )         //方向向上但比当前楼层低
+              i->m_iPriority = 2*MAX_FLOOR_NUM + i->m_iDestFlr;   //p = 2*MAX+i;
+            else if( i->m_eElvDir == DIR_DOWN )   //方向向下但比当前楼层低
+              i->m_iPriority = 2*MAX_FLOOR_NUM - i->m_iDestFlr;   //p = 2*MAX-i;
+          }
+        }
+      }
+      else if ( runDir == DIR_DOWN )       //如果运行列表方向向下
+      {
+        if ( i->m_iDestFlr == m_iCurFlr && (m_eCurState == IDLE || m_eCurState == DOWN_PAUSE) )   //当电梯向上停靠或待机，表项目的楼层与当前楼层一致时，优先级最高
+            i->m_iPriority = 0;
+        else                          //在其他状态，比如方向向上，或向下加速、匀速时，求解优先级
+        {
+          if ( i->m_iDestFlr > m_iCurFlr )
+          {
+            if ( i->m_eElvDir == DIR_UP )         //方向向上且比当前楼层高
+              i->m_iPriority = MAX_FLOOR_NUM + i->m_iDestFlr;   //p = MAX+i;
+            else if( i->m_eElvDir == DIR_DOWN )   //方向向下且比当前楼层高
+              i->m_iPriority = 3*MAX_FLOOR_NUM - i->m_iDestFlr; //p = 3*MAX-i;
+          }
+          else
+          {
+            if ( i->m_eElvDir == DIR_UP )         //方向向上但比当前楼层低
+              i->m_iPriority = MAX_FLOOR_NUM + i->m_iDestFlr;     //p = MAX+i;
+            else if( i->m_eElvDir == DIR_DOWN )   //方向向下但比当前楼层低
+              i->m_iPriority = MAX_FLOOR_NUM - i->m_iDestFlr;     //p = MAX-i;   
+          }
+        }
+      }
+    }
+  }
+  
   //////////////////////////////////////////////////////////////////////////
   //电梯待机和上行的区别在于即使电梯所在楼层和请求楼层在一层，但是上行时已经启动，本次请求的优先级会很低
-  if ( m_eCurState == IDLE )        //如果电梯待机
-  {
-    if ( ind.m_iDestFlr == m_iCurFlr )
-      ind.m_iPriority = 0;
-    else
-    {
-      if ( ind.m_eElvDir == DIR_UP )
-        ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
-      else if (ind.m_eElvDir == DIR_DOWN )
-        ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
-      else
-        ind.m_iPriority = 0;          //如果请求为NONE，说明就在本层，优先级最高
-    }
-  }
-  else if ( ELVT_UP(m_eCurState) )    //电梯上行
-  {
-    if ( ind.m_iDestFlr <= m_iCurFlr )  //如果电梯已经向上运行，那么在电梯楼层下面的请求优先级很很低
-    {
-      if ( ind.m_eElvDir == DIR_UP )
-        ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
-      else if ( ind.m_eElvDir == DIR_DOWN )
-        ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
-    }
-    else
-    {
-      if ( ind.m_eElvDir == DIR_UP )
-        ind.m_iPriority = ind.m_iDestFlr;
-      else if (ind.m_eElvDir == DIR_DOWN )
-        ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
-      else                            
-        ind.m_iPriority = 0x7F;    
-    }
-  }
-  else if ( ELVT_DOWN(m_eCurState) )
-  {
-    if ( ind.m_iDestFlr >= m_iCurFlr )  //如果电梯已经向下运行，那么在电梯楼层上面的请求优先级很很低
-    {
-      if (ind.m_eElvDir == DIR_DOWN )
-        ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
-      else if (ind.m_eElvDir == DIR_UP )
-        ind.m_iPriority = ind.m_iDestFlr;
-    }
-    else
-    {
-      if (ind.m_eElvDir == DIR_UP )
-        ind.m_iPriority = ind.m_iDestFlr;
-      else if (ind.m_eElvDir == DIR_DOWN )
-        ind.m_iPriority = -ind.m_iDestFlr ;
-      else
-        ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
-    }
-  }
+  //if ( m_eCurState == IDLE )        //如果电梯待机
+  //{
+  //  if ( ind.m_iDestFlr == m_iCurFlr )
+  //    ind.m_iPriority = 0;
+  //  else
+  //  {
+  //    if ( ind.m_eElvDir == DIR_UP )
+  //      ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
+  //    else if (ind.m_eElvDir == DIR_DOWN )
+  //      ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
+  //    else
+  //      ind.m_iPriority = 0;          //如果请求为NONE，说明就在本层，优先级最高
+  //  }
+  //}
+  //else if ( ELVT_UP(m_eCurState) )    //电梯上行
+  //{
+  //  if ( ind.m_iDestFlr <= m_iCurFlr )  //如果电梯已经向上运行，那么在电梯楼层下面的请求优先级很很低
+  //  {
+  //    if ( ind.m_eElvDir == DIR_UP )
+  //      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
+  //    else if ( ind.m_eElvDir == DIR_DOWN )
+  //      ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
+  //  }
+  //  else
+  //  {
+  //    if ( ind.m_eElvDir == DIR_UP )
+  //      ind.m_iPriority = ind.m_iDestFlr;
+  //    else if (ind.m_eElvDir == DIR_DOWN )
+  //      ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
+  //    else                            
+  //      ind.m_iPriority = 0x7F;    
+  //  }
+  //}
+  //else if ( ELVT_DOWN(m_eCurState) )
+  //{
+  //  if ( ind.m_iDestFlr >= m_iCurFlr )  //如果电梯已经向下运行，那么在电梯楼层上面的请求优先级很很低
+  //  {
+  //    if (ind.m_eElvDir == DIR_DOWN )
+  //      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
+  //    else if (ind.m_eElvDir == DIR_UP )
+  //      ind.m_iPriority = ind.m_iDestFlr;
+  //  }
+  //  else
+  //  {
+  //    if (ind.m_eElvDir == DIR_UP )
+  //      ind.m_iPriority = ind.m_iDestFlr;
+  //    else if (ind.m_eElvDir == DIR_DOWN )
+  //      ind.m_iPriority = -ind.m_iDestFlr ;
+  //    else
+  //      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
+  //  }
+  //}
 }
 
 /********************************************************************

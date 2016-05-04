@@ -24,15 +24,23 @@
 /*********************************************************************
  * DEFINE
  */
+
+//#define  TEST
+//#define NO_PRINT
+
 #define ELVT_UP(x)    ( x==UP_ACC   || x==UP_CONST   || x==UP_DEC   || x== UP_PAUSE )
 #define ELVT_DOWN(x)  ( x==DOWN_ACC || x==DOWN_CONST || x==DOWN_DEC || x== DOWN_PAUSE )
 #define ELVT_STOP(x)  ( x==IDLE || x==UP_PAUSE || x==DOWN_PAUSE )
 
-#define LOGE(fm, ...) {                                                    \
-                        fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__); \
-                      }
-
+#define LOGE(fm, ...) {fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__);}
 //#define LOGE(fm, ...) {fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__);printf(fm,__VA_ARGS__);}
+
+#ifdef NO_PRINT
+  #define LOGA(fm, ...) {}
+#else
+  #define LOGA(fm, ...) {fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__);}
+//#define LOGA(fm, ...) {fprintf(m_AlgFile.m_OutputFilePtr,fm,__VA_ARGS__);printf(fm,__VA_ARGS__);}
+#endif
 
 /*********************************************************************
  * GLOBAL VALUE
@@ -45,12 +53,14 @@ extern double gSystemTime;
 #define ELEVATOR_HEIGHT			28				//电梯箱体高度
 #define MAX_OUT_REQUEST     10        //一个电梯接收最大的请求数目
 #define MAX_PRIORITY_NUM	  100				//电梯运行列表最大优先级
-#define MAX_PSG_FLOW_NUM    200       //乘客流最大人数
-#define SYSTEM_TIME_STEP    1       //系统时间递增步长(s)
+#define SYSTEM_TIME_STEP    1         //系统时间递增步长(s)
 #define GRAVITY_ACCELERATE  9.7       //重力加速度
 #define MAX_WAIT_TIME       1000
 #define MAX_ENERGY          999999
 #define PSG_ARRIVE_PLACE    0x7F
+
+#define MAX_PSG_FLOW_NUM    100       //乘客流最大人数
+#define MAX_TIME_INTERVAL   10
 
 //匀速运行
 #define ONE_FLOOR_TIME      2         //电梯匀速一层楼时间(s)
@@ -81,8 +91,6 @@ extern double gSystemTime;
 #define OPEN_CLOSE_TIME			2				  //开关门时间(s)
 #define PSG_ENTER_TIME			1				  //乘客进入/离开时间时间(s)
     
-
-#define  TEST
 /*********************************************************************
  * ENUMS
  */
@@ -193,7 +201,7 @@ typedef struct  Passenger
   double	  m_dAllTime;        //乘梯时间
   PsgState  m_ePsgState;       //乘客状态
   uint8     m_iCurPlace;       //乘客所在位置
-
+  
   bool operator <(const Passenger& rhs) const // 升序排序时必须写的函数
   {
     return (m_dPsgReqTime < rhs.m_dPsgReqTime);

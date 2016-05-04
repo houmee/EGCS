@@ -87,7 +87,7 @@ CAlgInterface::~CAlgInterface()
 //  sPassengerIterator psgIterEnd = m_passengerVec.end();
 //  for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
 //  {
-//    LOGE( "generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
+//    LOGE( "generatePsgFlow:Psg(%3d)-ReqFlr(%2d)-DestFlr(%2d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_dPsgReqTime);	
 //    LOGE("%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
 //      i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir, i->m_dPsgReqTime, i->m_dWaitTime, i->m_dAllTime, i->m_ePsgState, i->m_iCurPlace);	
 //  }
@@ -100,8 +100,8 @@ CAlgInterface::~CAlgInterface()
 ********************************************************************/ 
 void CAlgInterface::generatePsgFlow()
 {
-  uint16 psg_num = MAX_PSG_FLOW_NUM - (int)floor(50 * rand()/(double)(RAND_MAX+1));
-  psg_num = 10;
+  //uint16 psg_num = MAX_PSG_FLOW_NUM - (int)floor(50 * rand()/(double)(RAND_MAX+1));
+  uint16 psg_num = MAX_PSG_FLOW_NUM;
 
   sPassengerInfo psg;
 
@@ -194,7 +194,7 @@ void CAlgInterface::generatePsgFlow()
   sPassengerIterator psgIterEnd = m_passengerVec.end();
   for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
   {
-    LOGE("generatePsgFlow:Psg(%2d)-ReqFlr(%2d)-DestFlr(%2d)-ReqDir(%d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir,i->m_dPsgReqTime);	
+    LOGE("generatePsgFlow:Psg(%3d)-ReqFlr(%2d)-DestFlr(%2d)-ReqDir(%d)-ReqTime(%f)\n",i->m_iPsgID,i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir,i->m_dPsgReqTime);	
 
 #if defined (TEST)   
     fprintf(m_AlgFile.m_PsgFilePtr,"%2d %2d %2d %2d %.2f %.2f %.2f %2d %2d\n",
@@ -212,7 +212,7 @@ void CAlgInterface::generatePsgFlow()
 double CAlgInterface::generateRandTime()
 {
   //TODO:泊松分布产生到达时间
-  return (3 * rand()/(double)(RAND_MAX+1));
+  return (MAX_TIME_INTERVAL * rand()/(double)(RAND_MAX+1));
 }
 
  /********************************************************************

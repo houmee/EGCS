@@ -73,7 +73,7 @@ public:
   void gotoNextDest();
   void onClickInnerBtn(sPassengerIterator& psg);
   void showElevator();
-  void getTaskPriority(sRunItem& ind);
+  void updateItemPriority();
   void updateRunInfo();
   sTargetVal trytoDispatch(sOutRequestIterator reqIter);
   sTargetVal runfromXtoY(sRunItem x, sRunItem y);

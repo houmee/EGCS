@@ -45,6 +45,38 @@ bool CMWT::Core_Main()
 
     LOGE("\n++++++++++++++++Core_Main:+++%.2f++++++++++++++++\n",gSystemTime);
 
+    //////////////////////////////////////////////////////////////////////////
+    //测试部分
+    //多少人到达目的地
+    int cnt =0;
+    sPassengerIterator psgIterEnd = m_passengerVec.end();
+    for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
+    {
+      if (i->m_ePsgState == PSG_ARRIVE)
+        cnt++;
+    }
+    LOGE("Total (%3d)Psg have arrived!\n",cnt);
+
+    //////////////////////////////////////////////////////////////////////////
+    //多少等待时间超过一定时间
+    for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
+    {
+      if ( (gSystemTime-i->m_dPsgReqTime > 50) && i->m_ePsgState == PSG_WAIT )
+        LOGE("Psg(%3d) waits for (%.2f) seconds!\n",i->m_iPsgID,gSystemTime-i->m_dPsgReqTime);
+
+      if ( (gSystemTime-i->m_dPsgReqTime > 50) && i->m_ePsgState == PSG_TRAVEL )
+        LOGE("Psg(%3d) travels for (%.2f) seconds!\n",i->m_iPsgID,gSystemTime-i->m_dPsgReqTime);
+
+      if ( i->m_iCurPlace == 0x5A )
+      {
+        i->m_iCurPlace = 0x11;
+        LOGE("Psg(%3d)-ReqTime(%.2f)->(%.2f)\n",i->m_iPsgID,i->m_dPsgReqTime,gSystemTime + 5);
+        i->m_dPsgReqTime = gSystemTime + 5;
+      }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
     //更新电梯状态
     CElevatorIterator elvtIterEnd = m_elevatorVec.end();
     for( CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
@@ -60,7 +92,7 @@ bool CMWT::Core_Main()
 
     //////////////////////////////////////////////////////////////////////////
     //异常退出
-    if ( gSystemTime > 200)
+    if ( gSystemTime > 1000)
     {
       m_AlgFile.CloseTools(1);
       LOGE("Run fail!\n");
@@ -118,7 +150,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
     if ( i->m_iCurFlr == reqIter->m_iReqCurFlr && ELVT_STOP(i->m_eCurState) && i->m_iCurPsgNum < MAX_INNER_PSG_NUM )
     {
       bestElvtIter = i;
-      LOGE( "dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
+      LOGA( "dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
       return bestElvtIter;
     }
   }
@@ -143,7 +175,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 
   }
 
-  LOGE("\ndispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
+  LOGA("dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
   return bestElvtIter;
 }
 
@@ -158,7 +190,7 @@ void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
   if ( !elvtIter->m_isSchedule )
   {
     elvtIter->m_isSchedule = true;
-    LOGE("dispatch: LastSysTime(%.2f)->(%.2f)-Schedule(true)\n",elvtIter->m_dLastSysTime,gSystemTime);
+    LOGA("dispatch: LastSysTime(%.2f)->(%.2f)-Schedule(true)\n",elvtIter->m_dLastSysTime,gSystemTime);
     elvtIter->m_dLastSysTime = gSystemTime;
   }
   
@@ -182,7 +214,7 @@ void CMWT::onClickOutBtn(sPassengerIterator& psg)
   out_req.m_dReqTime    = psg->m_dPsgReqTime;
   out_req.m_eReqDir     = (psg->m_iPsgDestFlr > psg->m_iPsgCurFlr) ? DIR_UP : DIR_DOWN; 
 
-  LOGE("onClickOutBtn:Psg(%2d)-[ReqCurFlr(%2d)-ReqDestFlr(%2d)-ReqDir(%d)]\n",psg->m_iPsgID,psg->m_iPsgCurFlr,psg->m_iPsgDestFlr,out_req.m_eReqDir);	
+  LOGA("onClickOutBtn:Psg(%3d)-[ReqCurFlr(%2d)-ReqDestFlr(%2d)-ReqDir(%d)]\n",psg->m_iPsgID,psg->m_iPsgCurFlr,psg->m_iPsgDestFlr,out_req.m_eReqDir);	
   
   if ( queryElement( m_outReqVec,out_req,reqIter ) != m_outReqVec.end() )
     return;
@@ -213,7 +245,7 @@ void CMWT::processOuterReqFlow()
         psgCnt++;
       } 
     }
-    else
-      break;
+   /* else
+      break;*/
   }
 }
