@@ -226,9 +226,6 @@ void CElevator::gotoNextDest()
     m_dCurRunDis  = 0;
     LOGA("gotoNextDest:Save LastItem-Elvt(%d)-NextStopFlr(%2d)->(%2d)\n",m_iElvtID,tmpItem.m_iDestFlr, m_lastRunItem.m_iDestFlr);	
     
-    //m_dLastSysTime  = m_dNextStateTime;    //
-    //LOGE("gotoNextDest:Save Elvt(%d)-LastSysTime(%.2f)->(%.2f)\n",m_iElvtID,tmptime,m_dLastSysTime);	
-
     //删除当前停靠点
     tarIter = queryElement( m_sRunTable,m_lastRunItem,tarIter );  
     LOGA("gotoNextDest:Delete LastItem-Elvt(%d)-ReqType(%d)-DestFlr(%d)\n", m_iElvtID,tarIter->m_eReqType, tarIter->m_iDestFlr);	
@@ -331,18 +328,14 @@ void CElevator::changeNextStop()
 *  @param    : reqIter 
 *  @return   : void
 ********************************************************************/ 
-sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
+sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfoVec& psgVec, CElevatorVec& elvtVec )
 {
   sRunItem reqRunItem;
   sRunItemIterator tarIter;
   sTargetVal tarVal = {0,0}, tmpTarVal={0,0};
+  sTargetVal preTarVal ={0,0}, NextTarVal ={0,0};
 
   //将外部请求封装为运行表项，获取从当前位置到请求的目标值
-  //if ( reqIter->m_iReqCurFlr == m_iCurFlr )
-  //  reqRunItem.m_eElvDir = DIR_NONE;
-  //else
-  //  reqRunItem.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
-
   reqRunItem.m_eRunDir  = reqIter->m_eReqDir;
   reqRunItem.m_eReqType = OUT_REQ;
   reqRunItem.m_iDestFlr = reqIter->m_iReqCurFlr;
@@ -350,31 +343,98 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
   m_isTrytoDispatch = true;
   //////////////////////////////////////////////////////////////////////////
   //求插入后的代价值
-  tarIter  = queryElement( m_sRunTable,reqRunItem,tarIter );
+  tarIter = queryElement( m_sRunTable,reqRunItem,tarIter );
   if ( tarIter == m_sRunTable.end() )
   {
-    insertRunTableItem( reqRunItem );  //插入当前运行表同时更新表的各项目标值
-
-    tarIter  = queryElement( m_sRunTable,reqRunItem,tarIter );     //插入操作导致tarInd失效，重新查询
+    //////////////////////////////////////////////////////////////////////////
+    //求解插入前能耗(人数的增加导致的运行能耗和启停能耗)
     sRunItemIterator end = m_sRunTable.end();
-    
     for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
     {
-      if ( i <= tarIter )
-      {
-        tmpTarVal.m_fEnergy   += i->m_sTarVal.m_fEnergy;
-        tmpTarVal.m_fWaitTime += i->m_sTarVal.m_fWaitTime;
+      /************************************************************************
+      * 1.判断运行列表下一表项的目的楼层
+      * 2.计算到达时间，判断其他电梯是否在达到时间内也到达目的楼层
+      * 3.如果没有其他电梯，计算停靠楼层后，轿厢内乘客数目
+      * 4.计算能耗
+      * 5.循环计算所有表项
+      ************************************************************************/
 
-        tarVal = tmpTarVal;
+      if (i == m_sRunTable.begin() )
+      {
+        preTarVal.m_fEnergy += i->m_sTarVal.m_fEnergy;
       }
       else
       {
-        //tarVal.m_fEnergy   += tmpTarVal.m_fEnergy;  //MWT不考虑能耗
+        uint16 psgCnt=0;
+        sPassengerIterator psgIterEnd = psgVec.end();
+        for( sPassengerIterator j=psgVec.begin(); j != psgIterEnd;  ++j )
+        {
+          if ( j->m_iPsgCurFlr == i->m_iDestFlr && j->m_ePsgState == PSG_WAIT && (j->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE ) && psgCnt < MAX_INNER_PSG_NUM )
+            psgCnt++;
+          else if ( j->m_iCurPlace == m_iElvtID && j->m_ePsgState == PSG_TRAVEL && j->m_iPsgDestFlr == i->m_iDestFlr )
+            psgCnt--;
+        }
+
+        preTarVal.m_fEnergy += START_STOP_ENERGY + GRAVITY_ACCELERATE*( (m_iCurPsgNum + psgCnt)*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
+      }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    //插入运行表项
+    insertRunTableItem( reqRunItem );  //插入当前运行表同时更新表的各项目标值
+    tarIter = queryElement( m_sRunTable,reqRunItem,tarIter );     //插入操作导致tarInd失效，重新查询
+    
+    //////////////////////////////////////////////////////////////////////////
+    //求解等待时间
+    end = m_sRunTable.end();
+    for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
+    {
+      if ( tarIter >= i )   //在iter后面的全部增加由于插入iter增加的时间
+      {
+        tmpTarVal.m_fWaitTime += i->m_sTarVal.m_fWaitTime;
+        tarVal.m_fWaitTime     = tmpTarVal.m_fWaitTime;
+      }
+      else                  //在iter前面的不增加等待时间，只增加iter的开关门时间
         tarVal.m_fWaitTime += OPEN_CLOSE_TIME + PSG_ENTER_TIME;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    //求解插入后能耗(人数的增加导致的运行能耗和启停能耗)
+    for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
+    {
+      /************************************************************************
+      * 1.判断运行列表下一表项的目的楼层
+      * 2.计算到达时间，判断其他电梯是否在达到时间内也到达目的楼层
+      * 3.如果没有其他电梯，计算停靠楼层后，轿厢内乘客数目
+      * 4.计算能耗
+      * 5.循环计算所有表项
+      ************************************************************************/
+
+      if (i == m_sRunTable.begin() )
+      {
+        NextTarVal.m_fEnergy += i->m_sTarVal.m_fEnergy;
+      }
+      else
+      {
+        uint16 psgCnt=0;
+        sPassengerIterator psgIterEnd = psgVec.end();
+        for( sPassengerIterator j=psgVec.begin(); j != psgIterEnd;  ++j )
+        {
+          if ( j->m_iPsgCurFlr == i->m_iDestFlr && j->m_ePsgState == PSG_WAIT && (j->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE ) && psgCnt < MAX_INNER_PSG_NUM )
+            psgCnt++;
+          else if ( j->m_iCurPlace == m_iElvtID && j->m_ePsgState == PSG_TRAVEL && j->m_iPsgDestFlr == i->m_iDestFlr )
+            psgCnt--;
+        }
+        
+        NextTarVal.m_fEnergy += START_STOP_ENERGY + GRAVITY_ACCELERATE*((m_iCurPsgNum + psgCnt)*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
       }
     }
   }
 
+  tarVal.m_fEnergy = NextTarVal.m_fEnergy - preTarVal.m_fEnergy;
+
+  //////////////////////////////////////////////////////////////////////////
+  //删除表项
   deleteRunTableItem( reqRunItem );
 
   m_isTrytoDispatch = false;
@@ -427,9 +487,8 @@ void CElevator::onClickInnerBtn(sPassengerIterator& psg)
 *  @param    : sPassengerInfoVec & psgVec 
 *  @return   : void
 ********************************************************************/ 
-void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
+void CElevator::processReqPsgFlow( sPassengerInfoVec& psgVec )
 {
-  bool isPsgTravel = false;
   sPassengerIterator psgIterEnd = psgVec.end();
 
   if ( m_iCurPsgNum > 0 )
@@ -457,7 +516,6 @@ void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
         {
           psgEnter(i);
           onClickInnerBtn(i);
-          isPsgTravel = true;
         }
         else if ( i->m_ePsgReqDir != m_eRundir )
         {
@@ -471,12 +529,6 @@ void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
         LOGA("processInnerPsgFlow:Elvt is full,Psg(%3d)-CurPlace(%3d)-PsgState(%d)is refused!\n",i->m_iPsgID,i->m_iCurPlace,i->m_ePsgState);
       }
     }
-  }
-
-  if ( isPsgTravel )
-  {
-    LOGA("processInnerPsgFlow:\n");
-    //showElevator();
   }
 }
 
@@ -722,61 +774,6 @@ void CElevator::updateItemPriority()
       }
     }
   }
-  
-  //////////////////////////////////////////////////////////////////////////
-  //电梯待机和上行的区别在于即使电梯所在楼层和请求楼层在一层，但是上行时已经启动，本次请求的优先级会很低
-  //if ( m_eCurState == IDLE )        //如果电梯待机
-  //{
-  //  if ( ind.m_iDestFlr == m_iCurFlr )
-  //    ind.m_iPriority = 0;
-  //  else
-  //  {
-  //    if ( ind.m_eElvDir == DIR_UP )
-  //      ind.m_iPriority = ind.m_iDestFlr > m_iCurFlr ? ind.m_iDestFlr : (MAX_FLOOR_NUM+ind.m_iDestFlr);
-  //    else if (ind.m_eElvDir == DIR_DOWN )
-  //      ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
-  //    else
-  //      ind.m_iPriority = 0;          //如果请求为NONE，说明就在本层，优先级最高
-  //  }
-  //}
-  //else if ( ELVT_UP(m_eCurState) )    //电梯上行
-  //{
-  //  if ( ind.m_iDestFlr <= m_iCurFlr )  //如果电梯已经向上运行，那么在电梯楼层下面的请求优先级很很低
-  //  {
-  //    if ( ind.m_eElvDir == DIR_UP )
-  //      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
-  //    else if ( ind.m_eElvDir == DIR_DOWN )
-  //      ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
-  //  }
-  //  else
-  //  {
-  //    if ( ind.m_eElvDir == DIR_UP )
-  //      ind.m_iPriority = ind.m_iDestFlr;
-  //    else if (ind.m_eElvDir == DIR_DOWN )
-  //      ind.m_iPriority = MAX_FLOOR_NUM*2-ind.m_iDestFlr;
-  //    else                            
-  //      ind.m_iPriority = 0x7F;    
-  //  }
-  //}
-  //else if ( ELVT_DOWN(m_eCurState) )
-  //{
-  //  if ( ind.m_iDestFlr >= m_iCurFlr )  //如果电梯已经向下运行，那么在电梯楼层上面的请求优先级很很低
-  //  {
-  //    if (ind.m_eElvDir == DIR_DOWN )
-  //      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
-  //    else if (ind.m_eElvDir == DIR_UP )
-  //      ind.m_iPriority = ind.m_iDestFlr;
-  //  }
-  //  else
-  //  {
-  //    if (ind.m_eElvDir == DIR_UP )
-  //      ind.m_iPriority = ind.m_iDestFlr;
-  //    else if (ind.m_eElvDir == DIR_DOWN )
-  //      ind.m_iPriority = -ind.m_iDestFlr ;
-  //    else
-  //      ind.m_iPriority = MAX_FLOOR_NUM*2+ind.m_iDestFlr;
-  //  }
-  //}
 }
 
 /********************************************************************

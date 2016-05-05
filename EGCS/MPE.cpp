@@ -1,9 +1,9 @@
 /******************************************************************** 
 修改时间:        2016/04/06 21:45
-文件名称:        MWT.cpp
+文件名称:        MPE.cpp
 文件作者:        huming 
 =====================================================================
-功能说明:        最小等待时间算法 
+功能说明:        最小能耗算法 
 --------------------------------------------------------------------- 
 版本编号:        
 --------------------------------------------------------------------- 
@@ -11,17 +11,17 @@
 *********************************************************************/
 
 /*********************************************************************
- * INCLUDES
- */
-#include "MWT.h"
+* INCLUDES
+*/
+#include "MPE.h"
 #include "template_file.h"
 
 /********************************************************************
-*  @name     : CMWT::CMWT    
+*  @name     : CMPE::CMPE    
 *  @brief    : 
 *  @return   : 
 ********************************************************************/ 
-CMWT::CMWT()
+CMPE::CMPE()
 { 
 }
 
@@ -30,7 +30,7 @@ CMWT::CMWT()
 *  @brief    : 
 *  @return   : void
 ********************************************************************/ 
-bool CMWT::Core_Main()
+bool CMPE::Core_Main()
 {
   generateElevatorVec();      //产生电梯群
   generatePsgFlow();          //产生乘客交通流
@@ -115,7 +115,7 @@ bool CMWT::Core_Main()
 *  @brief    : 
 *  @return   : void
 ********************************************************************/ 
-void CMWT::schedule()
+void CMPE::schedule()
 {
   CElevatorIterator elvtIter;
 
@@ -126,18 +126,18 @@ void CMWT::schedule()
     if ( elvtIter != m_elevatorVec.end() )  //如果返回值不为end
       dispatch(i,elvtIter);                 //处理每一个请求
   }
-  
+
   if ( m_outReqVec.size() > 0 )             //处理完所有请求，清除请求列表
     m_outReqVec.clear(); 
 }
- 
+
 /********************************************************************
 *  @name     : CMWT::fitness    
 *  @brief    : 
 *  @param    : reqIter 
 *  @return   : void
 ********************************************************************/ 
-CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
+CElevatorIterator CMPE::fitness(sOutRequestIterator& reqIter)
 {
   sTargetVal tarVal;
   sTargetVal MintargetVal = {MAX_WAIT_TIME,MAX_ENERGY};
@@ -167,9 +167,9 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
     if ( i->m_iCurPsgNum < MAX_INNER_PSG_NUM )                //只有电梯未满才能调度
     {
       tarVal = i->trytoDispatch(reqIter, m_passengerVec, m_elevatorVec);
-      if ( tarVal.m_fWaitTime != 0 )
+      if ( tarVal.m_fEnergy != 0 )
       {
-        if ( tarVal.m_fWaitTime < MintargetVal.m_fWaitTime )
+        if ( tarVal.m_fEnergy < MintargetVal.m_fEnergy )
         {
           bestElvtIter = i;
           MintargetVal = tarVal;
@@ -201,7 +201,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 
     bestElvtIter = m_elevatorVec.end();     //返回值设置为end
     LOGA("dispatch:outReq[Psg(%3d)-ReqCurFlr(%2d)-ReqDestFlr(%2d)-ReqTime(%.2f)-ReqDir(%d)] is refused!\n",
-         reqIter->m_iPassagerID,reqIter->m_iReqCurFlr,reqIter->m_iReqDestFlr,reqIter->m_dReqTime,reqIter->m_eReqDir);
+      reqIter->m_iPassagerID,reqIter->m_iReqCurFlr,reqIter->m_iReqDestFlr,reqIter->m_dReqTime,reqIter->m_eReqDir);
   }
   else
     LOGA("dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
@@ -214,7 +214,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 *  @param    : reqIter 
 *  @return   : void
 ********************************************************************/ 
-void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
+void CMPE::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
 {
   if ( !elvtIter->m_isSchedule )
   {
@@ -222,7 +222,7 @@ void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
     LOGA("dispatch: LastSysTime(%.2f)->(%.2f)-Schedule(true)\n",elvtIter->m_dLastSysTime,gSystemTime);
     elvtIter->m_dLastSysTime = gSystemTime;
   }
-  
+
   elvtIter->acceptRunTableItem(reqIter);
 }
 
@@ -231,11 +231,11 @@ void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
 *  @brief    : generate a new out request
 *  @return   : void
 ********************************************************************/ 
-void CMWT::onClickOutBtn(sPassengerIterator& psg)
+void CMPE::onClickOutBtn(sPassengerIterator& psg)
 {
   sOutRequest out_req;
   sOutRequestIterator reqIter;
- 
+
   //根据乘客外部请求生成申请实体
   out_req.m_iPassagerID = psg->m_iPsgID;
   out_req.m_iReqCurFlr  = psg->m_iPsgCurFlr;
@@ -244,7 +244,7 @@ void CMWT::onClickOutBtn(sPassengerIterator& psg)
   out_req.m_eReqDir     = (psg->m_iPsgDestFlr > psg->m_iPsgCurFlr) ? DIR_UP : DIR_DOWN; 
 
   LOGA("onClickOutBtn:Psg(%3d)-[ReqCurFlr(%2d)-ReqDestFlr(%2d)-ReqDir(%d)]\n",psg->m_iPsgID,psg->m_iPsgCurFlr,psg->m_iPsgDestFlr,out_req.m_eReqDir);	
-  
+
   if ( queryElement( m_outReqVec,out_req,reqIter ) != m_outReqVec.end() )
     return;
   else
@@ -258,7 +258,7 @@ void CMWT::onClickOutBtn(sPassengerIterator& psg)
 *  @brief    : 
 *  @return   : void
 ********************************************************************/ 
-void CMWT::processOuterReqFlow()
+void CMPE::processOuterReqFlow()
 {
   sPassengerIterator psgIterEnd = m_passengerVec.end();
   for( sPassengerIterator i=m_passengerVec.begin(); i != psgIterEnd;  ++i )

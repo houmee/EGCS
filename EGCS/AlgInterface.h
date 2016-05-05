@@ -70,7 +70,6 @@ public:
   void generatePsgFlow();     //产生客流
   void generateElevatorVec(); //产生电梯列表
   bool isAlgFinished();
-  void testPsgFlow();
 
   //虚函数部分子类必须实现
   virtual bool Core_Main(){ return false;};

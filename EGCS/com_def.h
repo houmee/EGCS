@@ -25,7 +25,7 @@
  * DEFINE
  */
 
-#define  TEST
+//#define TEST
 //#define NO_PRINT
 
 #define ELVT_UP(x)    ( x==UP_ACC   || x==UP_CONST   || x==UP_DEC   || x== UP_PAUSE )
@@ -59,8 +59,8 @@ extern double gSystemTime;
 #define MAX_ENERGY          999999
 #define PSG_ARRIVE_PLACE    0x7F
 
-#define MAX_PSG_FLOW_NUM    200      //乘客流最大人数
-#define MAX_TIME_INTERVAL   10
+#define MAX_PSG_FLOW_NUM    10      //乘客流最大人数
+#define MAX_TIME_INTERVAL   3
 #define MAX_ELEVATOR_NUM		2				  //电梯（箱体）数
 
 

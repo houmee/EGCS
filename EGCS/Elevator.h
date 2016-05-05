@@ -26,6 +26,8 @@
 
 using namespace std;
 
+class CElevator;
+
 typedef vector<sRunItem>             sRunItemVec;
 typedef vector<sRunItem>::iterator   sRunItemIterator;
 
@@ -40,6 +42,10 @@ typedef vector<sPassengerInfo>::iterator   sPassengerIterator;
 
 typedef vector<sEvent>                  sEventVec;
 typedef vector<sEvent>::iterator        sEventIterator;
+
+typedef vector<CElevator>             CElevatorVec;
+typedef vector<CElevator>::iterator   CElevatorIterator;
+typedef CElevator*                    CElevatorPtr;
 
 /*********************************************************************
  * CLASS
@@ -60,7 +66,7 @@ public:
   bool              m_isSchedule;     //是否被调度
   bool              m_canHandle;      //电梯是否可操作
   bool              m_isTrytoDispatch;
-  sRunItem          m_lastRunItem;   //上一个运行表项
+  sRunItem          m_lastRunItem;    //上一个运行表项
   sRunItemVec       m_sRunTable;      //电梯运行指示列表
   CTools            m_AlgFile;
 
@@ -75,7 +81,7 @@ public:
   void showElevator();
   void updateItemPriority();
   void updateRunInfo();
-  sTargetVal trytoDispatch(sOutRequestIterator reqIter);
+  sTargetVal trytoDispatch(sOutRequestIterator reqIter ,sPassengerInfoVec& psgVec, CElevatorVec& elvtVec );
   sTargetVal runfromXtoY(sRunItem x, sRunItem y);
   void processReqPsgFlow(sPassengerInfoVec& psgVec);
   void psgLeave(sPassengerIterator& psg);

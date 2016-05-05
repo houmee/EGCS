@@ -9,3 +9,30 @@
 --------------------------------------------------------------------- 
 其他说明:         
 *********************************************************************/
+#ifndef	MPE_H
+#define	MPE_H
+
+#include "AlgInterface.h"
+
+using namespace std;
+/*********************************************************************
+* CLASS
+*/
+class CMPE : public CAlgInterface
+{
+public:
+  CMPE();
+  ~CMPE(){};
+
+  bool Core_Main();
+  void schedule();
+  CElevatorIterator fitness(sOutRequestIterator& reqIter);
+  void dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter);
+
+  void processOuterReqFlow();
+  void onClickOutBtn(sPassengerIterator& psg);
+};
+
+/*********************************************************************
+*********************************************************************/
+#endif /* MPE_H */
