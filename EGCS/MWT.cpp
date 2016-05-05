@@ -41,6 +41,7 @@ bool CMWT::Core_Main()
 
   while ( !isAlgFinished() )  //所有人是否都已经到达目的层        
   {
+
     gSystemTime += SYSTEM_TIME_STEP;
 
     LOGE("\n++++++++++++++++Core_Main:+++%.2f++++++++++++++++\n",gSystemTime);
@@ -48,14 +49,22 @@ bool CMWT::Core_Main()
     //////////////////////////////////////////////////////////////////////////
     //测试部分
     //多少人到达目的地
-    int cnt =0;
+    int myCnt =0;
     sPassengerIterator psgIterEnd = m_passengerVec.end();
     for( sPassengerIterator  i=m_passengerVec.begin(); i != psgIterEnd;  ++i )
     {
-      if (i->m_ePsgState == PSG_ARRIVE)
-        cnt++;
+      if ( i->m_ePsgState == PSG_ARRIVE )
+        myCnt++;
+      else if ( i->m_ePsgState == PSG_TRAVEL)
+      {
+        //LOGE("Psg(%3d) is traveling at Place(%d)\n",i->m_iPsgID,i->m_iCurPlace);
+      }
+      else
+      {
+        //LOGE("Psg(%3d) is waiting  at Place(%d)\n",i->m_iPsgID,i->m_iCurPlace);
+      }
     }
-    LOGE("Total (%3d)Psg have arrived!\n",cnt);
+    LOGE("Total (%3d)Psg have arrived!\n",myCnt);
 
     //////////////////////////////////////////////////////////////////////////
     //多少等待时间超过一定时间
@@ -64,7 +73,7 @@ bool CMWT::Core_Main()
       if ( (gSystemTime-i->m_dPsgReqTime > 50) && i->m_ePsgState == PSG_WAIT )
         LOGE("Psg(%3d) waits for (%.2f) seconds!\n",i->m_iPsgID,gSystemTime-i->m_dPsgReqTime);
 
-      if ( (gSystemTime-i->m_dPsgReqTime > 50) && i->m_ePsgState == PSG_TRAVEL )
+      if ( (gSystemTime- i->m_dPsgReqTime- i->m_dWaitTime > 50) && i->m_ePsgState == PSG_TRAVEL )
         LOGE("Psg(%3d) travels for (%.2f) seconds!\n",i->m_iPsgID,gSystemTime-i->m_dPsgReqTime);
 
       if ( i->m_iCurPlace == 0x5A )
@@ -118,8 +127,8 @@ void CMWT::schedule()
   for( sOutRequestIterator i=m_outReqVec.begin(); i != reqIterEnd;  ++i )
   {
     elvtIter = fitness(i);
-    dispatch(i,elvtIter);       //处理每一个请求
-    //i->m_iReqElvtID = elvtIter->m_iElvtID;
+    if ( elvtIter != m_elevatorVec.end() )
+      dispatch(i,elvtIter);       //处理每一个请求
   }
   
   if ( m_outReqVec.size() > 0 )   //处理完所有请求，清除请求列表
@@ -136,7 +145,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 {
   sTargetVal tarVal;
   sTargetVal MintargetVal = {MAX_WAIT_TIME,MAX_ENERGY};
-  CElevatorIterator bestElvtIter;
+  CElevatorIterator bestElvtIter = m_elevatorVec.begin();
   CElevatorIterator elvtIterEnd = m_elevatorVec.end();
 
   /**
@@ -156,26 +165,53 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
   }
 
   //如果当前层没有电梯停靠或电梯人满时，进行调度
-  for( CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
+  uint8 cnt = 0;
+
+  for(CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
   {  
-    tarVal = i->trytoDispatch(reqIter);
-    if ( tarVal.m_fWaitTime != 0 )
+    if ( i->m_iCurPsgNum < MAX_INNER_PSG_NUM )
     {
-      if ( tarVal.m_fWaitTime < MintargetVal.m_fWaitTime )
+      tarVal = i->trytoDispatch(reqIter);
+      if ( tarVal.m_fWaitTime != 0 )
+      {
+        if ( tarVal.m_fWaitTime < MintargetVal.m_fWaitTime )
+        {
+          bestElvtIter = i;
+          MintargetVal = tarVal;
+        }
+      }
+      else
       {
         bestElvtIter = i;
-        MintargetVal = tarVal;
+        break;
       }
     }
     else
     {
-      bestElvtIter = i;
-      break;
+      cnt++;
+      uint16 psgid = reqIter->m_iPassagerID;
+      
+      sPassengerIterator psgIterEnd = m_passengerVec.end();
+      for( sPassengerIterator  j=m_passengerVec.begin(); j != psgIterEnd;  ++j )
+      {
+        if (j->m_iPsgID == psgid )
+        {
+          j->m_iCurPlace = 0x5A;
+          j->m_ePsgState = PSG_NONE;
+        }
+      }
+      LOGA("dispatch:Elvt(%d) is full,Psg(%3d) is refused!\n",i->m_iElvtID,psgid);
     }
-
   }
 
-  LOGA("dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
+  if ( cnt == m_elevatorVec.size() )
+  {
+    bestElvtIter = m_elevatorVec.end();
+    LOGA("dispatch:outReq[Psg(%3d)-ReqCurFlr(%2d)-ReqDestFlr(%2d)-ReqTime(%.2f)-ReqDir(%d)] is refused!\n",
+         reqIter->m_iPassagerID,reqIter->m_iReqCurFlr,reqIter->m_iReqDestFlr,reqIter->m_dReqTime,reqIter->m_eReqDir);
+  }
+  else
+    LOGA("dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	
   return bestElvtIter;
 }
 
@@ -242,6 +278,7 @@ void CMWT::processOuterReqFlow()
       {
         onClickOutBtn(i);
         i->m_ePsgState = PSG_WAIT;
+        i->m_iCurPlace = PSG_ARRIVE_PLACE;
         psgCnt++;
       } 
     }

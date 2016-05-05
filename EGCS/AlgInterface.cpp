@@ -125,6 +125,7 @@ void CAlgInterface::generatePsgFlow()
       insertElement( m_passengerVec, psg );
     }
   }
+
   else if ( m_eFlowType == DOWN_FLOW )  //об╦ъ╥Е
   {
     for (uint16 i=0; i<psg_num; i++)

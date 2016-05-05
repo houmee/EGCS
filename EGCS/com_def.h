@@ -25,7 +25,7 @@
  * DEFINE
  */
 
-//#define  TEST
+#define  TEST
 //#define NO_PRINT
 
 #define ELVT_UP(x)    ( x==UP_ACC   || x==UP_CONST   || x==UP_DEC   || x== UP_PAUSE )
@@ -59,8 +59,10 @@ extern double gSystemTime;
 #define MAX_ENERGY          999999
 #define PSG_ARRIVE_PLACE    0x7F
 
-#define MAX_PSG_FLOW_NUM    100       //乘客流最大人数
+#define MAX_PSG_FLOW_NUM    200      //乘客流最大人数
 #define MAX_TIME_INTERVAL   10
+#define MAX_ELEVATOR_NUM		2				  //电梯（箱体）数
+
 
 //匀速运行
 #define ONE_FLOOR_TIME      2         //电梯匀速一层楼时间(s)
@@ -82,7 +84,7 @@ extern double gSystemTime;
 #define PSG_AVG_WEIGHT      65        //乘客平均质量(kg)
 #define MAX_INNER_PSG_NUM   10        //电梯内最多人数
 #define MAX_FLOOR_NUM				10				//楼层数
-#define MAX_ELEVATOR_NUM		2				  //电梯（箱体）数
+//#define MAX_ELEVATOR_NUM		2				  //电梯（箱体）数
 #define FLOOR_HEIGHT        3         //楼层间高度(m)
 #define RUN_SPEED           1.5       //电梯运行速度(m/s)
 #define ACCELERATE_SPEED    1         //电梯加速度(m/s2)
@@ -231,7 +233,7 @@ typedef struct RunItem
 { 
   ReqType     m_eReqType;        //序号请求来源(内部、外部)
   int8        m_iPriority;       //运行优先级
-  RunDir		  m_eElvDir;         //运行方向
+  RunDir		  m_eRunDir;         //运行方向
   uint8       m_iDestFlr;        //运行目的层
   sTargetVal  m_sTarVal;
 
@@ -246,7 +248,7 @@ typedef struct RunItem
 
   bool operator == (const RunItem& rhs) 
   {
-    return ( m_iDestFlr == rhs.m_iDestFlr && m_eElvDir == rhs.m_eElvDir );
+    return ( m_iDestFlr == rhs.m_iDestFlr && m_eRunDir == rhs.m_eRunDir );
   }
 }sRunItem;
 

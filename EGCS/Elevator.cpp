@@ -38,7 +38,7 @@ CElevator::CElevator(int id, CTools& tools)
   m_AlgFile        = tools;
   m_sRunTable.reserve(MAX_FLOOR_NUM);
 
-  m_lastRunItem.m_eElvDir              = DIR_NONE;
+  m_lastRunItem.m_eRunDir              = DIR_NONE;
   m_lastRunItem.m_eReqType             = IN_REQ;
   m_lastRunItem.m_iDestFlr             = 1;
   m_lastRunItem.m_iPriority            = 0x7F;
@@ -343,7 +343,7 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter )
   //else
   //  reqRunItem.m_eElvDir  =( reqIter->m_iReqCurFlr > m_iCurFlr ) ? DIR_UP : DIR_DOWN;
 
-  reqRunItem.m_eElvDir  = reqIter->m_eReqDir;
+  reqRunItem.m_eRunDir  = reqIter->m_eReqDir;
   reqRunItem.m_eReqType = OUT_REQ;
   reqRunItem.m_iDestFlr = reqIter->m_iReqCurFlr;
 
@@ -396,10 +396,10 @@ void CElevator::acceptRunTableItem( sOutRequestIterator reqIter )
 
   reqRunItem.m_eReqType = OUT_REQ;
   reqRunItem.m_iDestFlr = reqIter->m_iReqCurFlr;
-  reqRunItem.m_eElvDir  = reqIter->m_eReqDir;
+  reqRunItem.m_eRunDir  = reqIter->m_eReqDir;
   
   insertRunTableItem( reqRunItem );
-  showElevator();
+  //showElevator();
 }
 
 /********************************************************************
@@ -415,10 +415,10 @@ void CElevator::onClickInnerBtn(sPassengerIterator& psg)
 
   runItem.m_eReqType = IN_REQ;
   runItem.m_iDestFlr = psg->m_iPsgDestFlr;
-  runItem.m_eElvDir = (psg->m_iPsgDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
+  runItem.m_eRunDir = (psg->m_iPsgDestFlr > m_iCurFlr) ? DIR_UP:DIR_DOWN;
   
   insertRunTableItem( runItem );
-  LOGA("onClickInnerBtn:Inner Psg(%3d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eElvDir,m_sRunTable.size(),m_sRunTable.capacity());	
+  LOGA("onClickInnerBtn:Inner Psg(%3d)-DestFlr(%2d)-ElvDir(%d)-Table(%d)-(%d)\n",psg->m_iPsgID,runItem.m_iDestFlr,runItem.m_eRunDir,m_sRunTable.size(),m_sRunTable.capacity());	
 }
 
 /********************************************************************
@@ -461,7 +461,7 @@ void CElevator::processReqPsgFlow(sPassengerInfoVec& psgVec)
         }
         else if ( i->m_ePsgReqDir != m_eRundir )
         {
-          LOGA("processInnerPsgFlow:Inner Req[Psg(%3d)-PsgDest(%2d)-PsgCurFlr(%2d)] is denied!\n", i->m_iPsgID, i->m_iPsgDestFlr,i->m_iPsgCurFlr);
+          LOGA("processInnerPsgFlow:Inner Req[Psg(%3d)-PsgCurFlr(%2d)-PsgDest(%2d)-Dir(%d)] is denied!\n", i->m_iPsgID, i->m_iPsgCurFlr,i->m_iPsgDestFlr,i->m_ePsgReqDir);
         }
       }
       else if ( m_iCurPsgNum ==  MAX_INNER_PSG_NUM )
@@ -493,7 +493,7 @@ void CElevator::psgLeave(sPassengerIterator& psg)
   psg->m_ePsgState = PSG_ARRIVE;
   psg->m_dAllTime = gSystemTime - psg->m_dPsgReqTime;
   psg->m_iCurPlace = PSG_ARRIVE_PLACE;
-  LOGA("psgLeave:Psg(%3d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
+  LOGA("psgLeave:Psg(%3d)-CurPlace(%d) Leaves Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,psg->m_iCurPlace,m_iElvtID,m_iCurPsgNum);	
 }
 
 /********************************************************************
@@ -508,7 +508,7 @@ void CElevator::psgEnter(sPassengerIterator& psg)
   psg->m_dWaitTime = gSystemTime - psg->m_dPsgReqTime;
   psg->m_ePsgState = PSG_TRAVEL;
   psg->m_iCurPlace = m_iElvtID;
-  LOGA("psgEnter:Psg(%3d) Enters Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,m_iElvtID,m_iCurPsgNum);	
+  LOGA("psgEnter:Psg(%3d)-CurPlace(%d) Enters Elevator(%d)-CurVol(%2d)\n",psg->m_iPsgID,psg->m_iCurPlace,m_iElvtID,m_iCurPsgNum);	
 }
 
 /********************************************************************
@@ -587,8 +587,8 @@ void CElevator::insertRunTableItem( sRunItem runItem )
   if ( runItem.m_eReqType == IN_REQ )
   {
     if ( m_eCurState == IDLE || m_eCurState == DOWN_PAUSE || m_eCurState == UP_PAUSE ||
-       ( runItem.m_eElvDir == DIR_DOWN && ELVT_DOWN(m_eCurState)) ||
-       ( runItem.m_eElvDir == DIR_UP   && ELVT_UP(m_eCurState))
+       ( runItem.m_eRunDir == DIR_DOWN && ELVT_DOWN(m_eCurState)) ||
+       ( runItem.m_eRunDir == DIR_UP   && ELVT_UP(m_eCurState))
        )
     {
       if (queryElement(m_sRunTable,runItem,indIter) != m_sRunTable.end())    //迭代器一般用!做比较
@@ -657,13 +657,13 @@ void CElevator::updateItemPriority()
       {
         if ( m_iCurFlr == i->m_iDestFlr )   //如果下一个运行目的楼层就是当前楼层
         {
-          runDir = i->m_eElvDir;
+          runDir = i->m_eRunDir;
           break;
         }
         else if ( abs(i->m_iDestFlr-m_iCurFlr) < tmpFlr )
         {
           runDir = m_iCurFlr>i->m_iDestFlr ? DIR_DOWN : DIR_UP;
-          if ( runDir == i->m_eElvDir )
+          if ( runDir == i->m_eRunDir )
             tmpFlr = abs(m_iCurFlr-i->m_iDestFlr);
         }
       }
@@ -677,44 +677,45 @@ void CElevator::updateItemPriority()
     {
       if ( runDir == DIR_UP )         //如果运行列表方向向上
       {
-        if ( i->m_iDestFlr == m_iCurFlr && (m_eCurState == IDLE || m_eCurState == UP_PAUSE) )   //当电梯向上停靠或待机，表项目的楼层与当前楼层一致时，优先级最高
+        if ( i->m_iDestFlr == m_iCurFlr && i->m_eRunDir == DIR_UP && (m_eCurState == IDLE || m_eCurState == UP_PAUSE) ) //当电梯向上停靠或待机，表项目的楼层与当前楼层一致时，优先级最高
             i->m_iPriority = 0;
         else                                //在其他状态，比如方向向下，或向上加速、匀速时，求解优先级
         {
           if ( i->m_iDestFlr > m_iCurFlr )  
           {
-            if ( i->m_eElvDir == DIR_UP )         //方向向上且比当前楼层高
+            if ( i->m_eRunDir == DIR_UP )         //方向向上且比当前楼层高
               i->m_iPriority = i->m_iDestFlr;     //p = i;
-            else if ( i->m_eElvDir == DIR_DOWN )  //方向向下且比当前楼层高
+            else if ( i->m_eRunDir == DIR_DOWN )  //方向向下且比当前楼层高
               i->m_iPriority = 2*MAX_FLOOR_NUM - i->m_iDestFlr;   //p = 2*MAX-i;
           }
           else
           {
-            if ( i->m_eElvDir == DIR_UP )         //方向向上但比当前楼层低
+            if ( i->m_eRunDir == DIR_UP )         //方向向上但比当前楼层低
               i->m_iPriority = 2*MAX_FLOOR_NUM + i->m_iDestFlr;   //p = 2*MAX+i;
-            else if( i->m_eElvDir == DIR_DOWN )   //方向向下但比当前楼层低
+            else if( i->m_eRunDir == DIR_DOWN )   //方向向下但比当前楼层低
               i->m_iPriority = 2*MAX_FLOOR_NUM - i->m_iDestFlr;   //p = 2*MAX-i;
           }
         }
       }
       else if ( runDir == DIR_DOWN )       //如果运行列表方向向下
       {
-        if ( i->m_iDestFlr == m_iCurFlr && (m_eCurState == IDLE || m_eCurState == DOWN_PAUSE) )   //当电梯向上停靠或待机，表项目的楼层与当前楼层一致时，优先级最高
-            i->m_iPriority = 0;
+
+        if ( i->m_iDestFlr == m_iCurFlr && i->m_eRunDir == DIR_DOWN && (m_eCurState == IDLE || m_eCurState == DOWN_PAUSE) ) //当电梯向上停靠或待机，表项目的楼层与当前楼层一致时，优先级最高
+          i->m_iPriority = 0;
         else                          //在其他状态，比如方向向上，或向下加速、匀速时，求解优先级
         {
-          if ( i->m_iDestFlr > m_iCurFlr )
+          if ( i->m_iDestFlr >= m_iCurFlr )
           {
-            if ( i->m_eElvDir == DIR_UP )         //方向向上且比当前楼层高
+            if ( i->m_eRunDir == DIR_UP )         //方向向上且比当前楼层高
               i->m_iPriority = MAX_FLOOR_NUM + i->m_iDestFlr;   //p = MAX+i;
-            else if( i->m_eElvDir == DIR_DOWN )   //方向向下且比当前楼层高
+            else if( i->m_eRunDir == DIR_DOWN )   //方向向下且比当前楼层高
               i->m_iPriority = 3*MAX_FLOOR_NUM - i->m_iDestFlr; //p = 3*MAX-i;
           }
           else
           {
-            if ( i->m_eElvDir == DIR_UP )         //方向向上但比当前楼层低
+            if ( i->m_eRunDir == DIR_UP )         //方向向上但比当前楼层低
               i->m_iPriority = MAX_FLOOR_NUM + i->m_iDestFlr;     //p = MAX+i;
-            else if( i->m_eElvDir == DIR_DOWN )   //方向向下但比当前楼层低
+            else if( i->m_eRunDir == DIR_DOWN )   //方向向下但比当前楼层低
               i->m_iPriority = MAX_FLOOR_NUM - i->m_iDestFlr;     //p = MAX-i;   
           }
         }
@@ -789,7 +790,7 @@ void CElevator::showElevator()
   for( sRunItemIterator  i=m_sRunTable.begin(); i != end;  ++i )
   {
     LOGE("showElevator:ReqType(%d)-eElvDir(%d)-DestFlr(%d)-Priority(%2d)-Time(%.2f)\n",
-      i->m_eReqType,i->m_eElvDir,i->m_iDestFlr,i->m_iPriority,i->m_sTarVal.m_fWaitTime);	
+      i->m_eReqType,i->m_eRunDir,i->m_iDestFlr,i->m_iPriority,i->m_sTarVal.m_fWaitTime);	
   }
 }
 /*********************************************************************
