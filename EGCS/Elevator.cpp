@@ -328,13 +328,13 @@ void CElevator::changeNextStop()
 *  @param    : reqIter 
 *  @return   : void
 ********************************************************************/ 
-sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfoVec& psgVec, CElevatorVec& elvtVec )
+sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfoVec& psgVec, cElevatorVec& elvtVec )
 {
   sRunItem reqRunItem;
   sRunItemIterator tarIter;
   sTargetVal tarVal = {0,0}, tmpTarVal={0,0};
   sTargetVal preTarVal ={0,0}, NextTarVal ={0,0};
-
+  
   //将外部请求封装为运行表项，获取从当前位置到请求的目标值
   reqRunItem.m_eRunDir  = reqIter->m_eReqDir;
   reqRunItem.m_eReqType = OUT_REQ;
@@ -347,46 +347,17 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfo
   if ( tarIter == m_sRunTable.end() )
   {
     //////////////////////////////////////////////////////////////////////////
-    //求解插入前能耗(人数的增加导致的运行能耗和启停能耗)
-    sRunItemIterator end = m_sRunTable.end();
-    for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
-    {
-      /************************************************************************
-      * 1.判断运行列表下一表项的目的楼层
-      * 2.计算到达时间，判断其他电梯是否在达到时间内也到达目的楼层
-      * 3.如果没有其他电梯，计算停靠楼层后，轿厢内乘客数目
-      * 4.计算能耗
-      * 5.循环计算所有表项
-      ************************************************************************/
-
-      if (i == m_sRunTable.begin() )
-      {
-        preTarVal.m_fEnergy += i->m_sTarVal.m_fEnergy;
-      }
-      else
-      {
-        uint16 psgCnt=0;
-        sPassengerIterator psgIterEnd = psgVec.end();
-        for( sPassengerIterator j=psgVec.begin(); j != psgIterEnd;  ++j )
-        {
-          if ( j->m_iPsgCurFlr == i->m_iDestFlr && j->m_ePsgState == PSG_WAIT && (j->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE ) && psgCnt < MAX_INNER_PSG_NUM )
-            psgCnt++;
-          else if ( j->m_iCurPlace == m_iElvtID && j->m_ePsgState == PSG_TRAVEL && j->m_iPsgDestFlr == i->m_iDestFlr )
-            psgCnt--;
-        }
-
-        preTarVal.m_fEnergy += START_STOP_ENERGY + GRAVITY_ACCELERATE*( (m_iCurPsgNum + psgCnt)*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
-      }
-    }
+    //1.求解插入前能耗(人数的增加导致的运行能耗和启停能耗)
+    preTarVal.m_fEnergy = getEnergy(psgVec, elvtVec);
 
     //////////////////////////////////////////////////////////////////////////
-    //插入运行表项
+    //2.插入运行表项
     insertRunTableItem( reqRunItem );  //插入当前运行表同时更新表的各项目标值
     tarIter = queryElement( m_sRunTable,reqRunItem,tarIter );     //插入操作导致tarInd失效，重新查询
     
     //////////////////////////////////////////////////////////////////////////
-    //求解等待时间
-    end = m_sRunTable.end();
+    //3.求解等待时间
+    sRunItemIterator end = m_sRunTable.end();
     for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
     {
       if ( tarIter >= i )   //在iter后面的全部增加由于插入iter增加的时间
@@ -399,49 +370,86 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfo
     }
 
     //////////////////////////////////////////////////////////////////////////
-    //求解插入后能耗(人数的增加导致的运行能耗和启停能耗)
-    for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
-    {
-      /************************************************************************
-      * 1.判断运行列表下一表项的目的楼层
-      * 2.计算到达时间，判断其他电梯是否在达到时间内也到达目的楼层
-      * 3.如果没有其他电梯，计算停靠楼层后，轿厢内乘客数目
-      * 4.计算能耗
-      * 5.循环计算所有表项
-      ************************************************************************/
+    //4.求解插入后能耗(人数的增加导致的运行能耗和启停能耗)
+    NextTarVal.m_fEnergy = getEnergy(psgVec, elvtVec);
 
-      if (i == m_sRunTable.begin() )
-      {
-        NextTarVal.m_fEnergy += i->m_sTarVal.m_fEnergy;
-      }
-      else
-      {
-        uint16 psgCnt=0;
-        sPassengerIterator psgIterEnd = psgVec.end();
-        for( sPassengerIterator j=psgVec.begin(); j != psgIterEnd;  ++j )
-        {
-          if ( j->m_iPsgCurFlr == i->m_iDestFlr && j->m_ePsgState == PSG_WAIT && (j->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE ) && psgCnt < MAX_INNER_PSG_NUM )
-            psgCnt++;
-          else if ( j->m_iCurPlace == m_iElvtID && j->m_ePsgState == PSG_TRAVEL && j->m_iPsgDestFlr == i->m_iDestFlr )
-            psgCnt--;
-        }
-        
-        NextTarVal.m_fEnergy += START_STOP_ENERGY + GRAVITY_ACCELERATE*((m_iCurPsgNum + psgCnt)*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
-      }
-    }
+    //////////////////////////////////////////////////////////////////////////
+    //5.求解能耗差值
+    tarVal.m_fEnergy = NextTarVal.m_fEnergy - preTarVal.m_fEnergy;
+
+    //////////////////////////////////////////////////////////////////////////
+    //6.删除表项
+    deleteRunTableItem( reqRunItem );
   }
-
-  tarVal.m_fEnergy = NextTarVal.m_fEnergy - preTarVal.m_fEnergy;
-
-  //////////////////////////////////////////////////////////////////////////
-  //删除表项
-  deleteRunTableItem( reqRunItem );
-
+  
   m_isTrytoDispatch = false;
-
   return tarVal;     //返回目标值
 }
 
+
+/********************************************************************
+*  @name     : CElevator::getEnergy    
+*  @brief    : 
+*  @param    : sPassengerInfoVec & psgVec 
+*  @param    : cElevatorVec      & elvtVec 
+*  @return   : double
+********************************************************************/
+double CElevator::getEnergy( sPassengerInfoVec& psgVec, cElevatorVec& elvtVec )
+{
+  
+  sTargetVal tarVal ={0,0};
+  CElevator newElvt = elvtVec.at(m_iElvtID);  //拷贝当前电梯对象
+
+  sRunItemIterator end   = newElvt.m_sRunTable.end();
+  sRunItemIterator begin = newElvt.m_sRunTable.begin();
+
+  for( sRunItemIterator i=begin; i != end; ++i )   
+  {
+    /************************************************************************
+    * 1.判断运行列表下一表项的目的楼层
+    * 2.计算到达时间，判断其他电梯是否在达到时间内也到达目的楼层
+    * 3.如果没有其他电梯，计算停靠楼层后，轿厢内乘客数目
+    * 4.计算能耗
+    * 5.循环计算所有表项
+    ************************************************************************/
+    if ( i == begin )
+    {
+      tarVal.m_fEnergy = i->m_sTarVal.m_fEnergy;        //
+    }
+    else
+    {
+      uint16 sameFlrCnt=0, waitPsgNum=0, leavePsgNum=0;
+      cElevatorIterator elvtIterEnd = elvtVec.end();
+
+      for( cElevatorIterator i=elvtVec.begin(); i != elvtIterEnd;  ++i )
+      {
+        if ( newElvt.m_iElvtID != i->m_iElvtID && i->m_iNextStopFlr == newElvt.m_iNextStopFlr )
+        {
+          if ( (i->m_dNextStateTime > newElvt.m_dNextStateTime) && (i->m_dNextStateTime < newElvt.m_dNextStateTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME) )
+            sameFlrCnt++;
+        }
+      }
+
+      sPassengerIterator psgIterEnd = psgVec.end();
+      for( sPassengerIterator j=psgVec.begin(); j != psgIterEnd;  ++j )
+      {
+        if ( j->m_iPsgCurFlr == newElvt.m_iNextStopFlr && j->m_ePsgState == PSG_WAIT && j->m_ePsgReqDir == newElvt.m_eRundir )
+          waitPsgNum++;
+        if ( j->m_iPsgDestFlr == newElvt.m_iNextStopFlr && j->m_iCurPlace == newElvt.m_iElvtID && j->m_ePsgState == PSG_TRAVEL  )
+          leavePsgNum++;
+      }
+
+      if ( sameFlrCnt != 0)
+        newElvt.m_iCurPsgNum += waitPsgNum/sameFlrCnt - leavePsgNum;
+      else
+        newElvt.m_iCurPsgNum += waitPsgNum - leavePsgNum;
+
+      tarVal.m_fEnergy;
+    }
+  }
+  
+  return tarVal.m_fEnergy;
+}
 
 /********************************************************************
 *  @name     : CElevator::acceptRunTableItem    

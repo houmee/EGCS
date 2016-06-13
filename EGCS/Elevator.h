@@ -43,9 +43,9 @@ typedef vector<sPassengerInfo>::iterator   sPassengerIterator;
 typedef vector<sEvent>                  sEventVec;
 typedef vector<sEvent>::iterator        sEventIterator;
 
-typedef vector<CElevator>             CElevatorVec;
-typedef vector<CElevator>::iterator   CElevatorIterator;
-typedef CElevator*                    CElevatorPtr;
+typedef vector<CElevator>             cElevatorVec;
+typedef vector<CElevator>::iterator   cElevatorIterator;
+typedef CElevator*                    cElevatorPtr;
 
 /*********************************************************************
  * CLASS
@@ -81,7 +81,8 @@ public:
   void showElevator();
   void updateItemPriority();
   void updateRunInfo();
-  sTargetVal trytoDispatch(sOutRequestIterator reqIter ,sPassengerInfoVec& psgVec, CElevatorVec& elvtVec );
+  sTargetVal trytoDispatch(sOutRequestIterator reqIter ,sPassengerInfoVec& psgVec, cElevatorVec& elvtVec );
+  double getEnergy( sPassengerInfoVec& psgVec, cElevatorVec& elvtVec );
   sTargetVal runfromXtoY(sRunItem x, sRunItem y);
   void processReqPsgFlow(sPassengerInfoVec& psgVec);
   void psgLeave(sPassengerIterator& psg);

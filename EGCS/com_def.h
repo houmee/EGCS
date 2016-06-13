@@ -87,7 +87,7 @@ extern double gSystemTime;
 //#define MAX_ELEVATOR_NUM		2				  //电梯（箱体）数
 #define FLOOR_HEIGHT        3         //楼层间高度(m)
 #define RUN_SPEED           1.5       //电梯运行速度(m/s)
-#define ACCELERATE_SPEED    1         //电梯加速度(m/s2)
+#define ACCELERATE_SPEED    1.5       //电梯加速度(m/s2)
 #define JERK_SPEED          1.8       //电梯加加速度(m/s3)
 #define WEIGHT_CAPACITY     1000      //电梯最大载重(kg)
 #define OPEN_CLOSE_TIME			2				  //开关门时间(s)

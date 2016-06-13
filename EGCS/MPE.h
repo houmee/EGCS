@@ -26,8 +26,8 @@ public:
 
   bool Core_Main();
   void schedule();
-  CElevatorIterator fitness(sOutRequestIterator& reqIter);
-  void dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter);
+  cElevatorIterator fitness(sOutRequestIterator& reqIter);
+  void dispatch(sOutRequestIterator& reqIter, cElevatorIterator& elvtIter);
 
   void processOuterReqFlow();
   void onClickOutBtn(sPassengerIterator& psg);

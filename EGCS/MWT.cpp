@@ -83,8 +83,8 @@ bool CMWT::Core_Main()
 
     //////////////////////////////////////////////////////////////////////////
     //更新电梯状态
-    CElevatorIterator elvtIterEnd = m_elevatorVec.end();
-    for( CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
+    cElevatorIterator elvtIterEnd = m_elevatorVec.end();
+    for( cElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
       i->updateRunInfo();
 
     //处理外部请求
@@ -92,7 +92,7 @@ bool CMWT::Core_Main()
     schedule();               //将外部请求分派调度
 
     //电梯控制
-    for( CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
+    for( cElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
       i->Elevator_Main(m_outReqVec, m_passengerVec);
 
     //////////////////////////////////////////////////////////////////////////
@@ -117,7 +117,7 @@ bool CMWT::Core_Main()
 ********************************************************************/ 
 void CMWT::schedule()
 {
-  CElevatorIterator elvtIter;
+  cElevatorIterator elvtIter;
 
   sOutRequestIterator reqIterEnd = m_outReqVec.end();
   for( sOutRequestIterator i=m_outReqVec.begin(); i != reqIterEnd;  ++i )
@@ -137,19 +137,19 @@ void CMWT::schedule()
 *  @param    : reqIter 
 *  @return   : void
 ********************************************************************/ 
-CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
+cElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 {
   sTargetVal tarVal;
   sTargetVal MintargetVal = {MAX_WAIT_TIME,MAX_ENERGY};
-  CElevatorIterator bestElvtIter = m_elevatorVec.begin();
-  CElevatorIterator elvtIterEnd = m_elevatorVec.end();
+  cElevatorIterator bestElvtIter = m_elevatorVec.begin();
+  cElevatorIterator elvtIterEnd = m_elevatorVec.end();
 
   /**
   * 1.判断当前楼层是否有电梯门开着
   * 2.当前楼层是否有电梯停靠
   * 3.如果之前有乘客被分配，依旧分配乘客给之前电梯
   */
-  for( CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
+  for( cElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
   {
     //如果电梯就在请求所在层且电梯处于待机、人数未满时，之间返回电梯号
     if ( i->m_iCurFlr == reqIter->m_iReqCurFlr && ELVT_STOP(i->m_eCurState) && i->m_iCurPsgNum < MAX_INNER_PSG_NUM )
@@ -162,7 +162,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 
   //如果当前层没有电梯停靠或电梯人满时，进行调度
   uint8 cnt = 0;
-  for(CElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
+  for(cElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
   {  
     if ( i->m_iCurPsgNum < MAX_INNER_PSG_NUM )                //只有电梯未满才能调度
     {
@@ -214,7 +214,7 @@ CElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
 *  @param    : reqIter 
 *  @return   : void
 ********************************************************************/ 
-void CMWT::dispatch(sOutRequestIterator& reqIter, CElevatorIterator& elvtIter)
+void CMWT::dispatch(sOutRequestIterator& reqIter, cElevatorIterator& elvtIter)
 {
   if ( !elvtIter->m_isSchedule )
   {
