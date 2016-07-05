@@ -55,44 +55,57 @@ extern double gSystemTime;
 #define MAX_PRIORITY_NUM	  100				//电梯运行列表最大优先级
 #define SYSTEM_TIME_STEP    1         //系统时间递增步长(s)
 #define GRAVITY_ACCELERATE  9.7       //重力加速度
-#define MAX_WAIT_TIME       1000
+
+#define MAX_WAIT_TIME       1000      
 #define MAX_ENERGY          999999
 #define PSG_ARRIVE_PLACE    0x7F
 
 #define MAX_PSG_FLOW_NUM    10      //乘客流最大人数
-#define MAX_TIME_INTERVAL   3
-#define MAX_ELEVATOR_NUM		2				  //电梯（箱体）数
-
-
-//匀速运行
-#define ONE_FLOOR_TIME      2         //电梯匀速一层楼时间(s)
-//加减速运行
-#define CONST_SPEED_TIME    1.33      //匀速时间(s)
-#define ACCELERATE_TIME     1         //加速时间(s)
-#define DECELERATE_TIME     1         //加速时间(s)
-#define REMAIN_GAP_TIME     1.67      //一层间距加减速剩余距离匀速移动距时间s)
-#define CONST_SPEED_LENGTH  2         //匀速移动距离(m)
-#define ACCELERATE_LENGTH   0.5       //减速移动距离(m)
-#define DECELERATE_LENGTH   0.5       //加速移动距离(m)
-#define REMAIN_GAP_LENGTH   2.5       //加减速剩余距离(m)
-
+#define MAX_TIME_INTERVAL   3       //客流到达最晚时间
 //运行参数
 #define START_STOP_ENERGY   22500     //启停能耗(J)
 #define CAR_WEIGHT          800       //轿厢重量(kg)
 #define COUNT_WEIGHT        900       //配重质量(kg)
 #define NET_CAR_WEIGHT      -100      //轿厢与配置净重质量(kg)
 #define PSG_AVG_WEIGHT      65        //乘客平均质量(kg)
-#define MAX_INNER_PSG_NUM   10        //电梯内最多人数
-#define MAX_FLOOR_NUM				10				//楼层数
-//#define MAX_ELEVATOR_NUM		2				  //电梯（箱体）数
+#define MAX_INNER_PSG_NUM   12        //电梯内最多人数
+#define MAX_FLOOR_NUM				16				//楼层数
+#define MAX_ELEVATOR_NUM		4				  //电梯（箱体）数
 #define FLOOR_HEIGHT        3         //楼层间高度(m)
-#define RUN_SPEED           1.5       //电梯运行速度(m/s)
-#define ACCELERATE_SPEED    1.5       //电梯加速度(m/s2)
+#define RUN_SPEED           2.5       //电梯运行速度(m/s)
+#define ACCELERATE_SPEED    1         //电梯加速度(m/s2)
 #define JERK_SPEED          1.8       //电梯加加速度(m/s3)
-#define WEIGHT_CAPACITY     1000      //电梯最大载重(kg)
+//#define WEIGHT_CAPACITY     1000      //电梯最大载重(kg)
 #define OPEN_CLOSE_TIME			2				  //开关门时间(s)
-#define PSG_ENTER_TIME			1				  //乘客进入/离开时间时间(s)
+#define PSG_ENTER_TIME			4				  //乘客进入/离开时间时间(s)
     
+//一层运行时间
+#define ONE_FLR_ACC_TIME    1.67       //一层间距加速时间(s)
+#define ONE_FLR_DEC_TIME    1.67       //一层间距减速时间(s)
+#define ONE_FLR_CST_TIME    0          //一层楼间距时匀速运行时间
+#define ONE_FLR_CST_LENGTH  0          //一层楼间距时匀速运行距离
+
+//多层运行时间
+#define ONE_FLOOR_TIME      1.2       //电梯无加减速匀速一层楼时间(s)
+#define ACCELERATE_TIME     2.5       //加速时间(s)
+#define DECELERATE_TIME     2.5       //加速时间(s)
+#define REMAIN_GAP_TIME     0.2       //一层间距加减速剩余距离匀速移动距时间(s)
+#define ACCELERATE_LENGTH   2.5       //减速移动距离(m)
+#define DECELERATE_LENGTH   2.5       //加速移动距离(m)
+#define REMAIN_GAP_LENGTH   0.5       //加减速剩余距离(m)
+
+////匀速运行
+//#define ONE_FLOOR_TIME      2         //电梯匀速一层楼时间(s)
+////加减速运行
+//#define CONST_SPEED_TIME    1.33      //匀速时间(s)
+//#define ACCELERATE_TIME     1         //加速时间(s)
+//#define DECELERATE_TIME     1         //加速时间(s)
+//#define REMAIN_GAP_TIME     1.67      //一层间距加减速剩余距离匀速移动距时间s)
+//#define CONST_SPEED_LENGTH  2         //匀速移动距离(m)
+//#define ACCELERATE_LENGTH   0.5       //减速移动距离(m)
+//#define DECELERATE_LENGTH   0.5       //加速移动距离(m)
+//#define REMAIN_GAP_LENGTH   2.5       //加减速剩余距离(m)
+
 /*********************************************************************
  * ENUMS
  */

@@ -349,14 +349,19 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfo
     //////////////////////////////////////////////////////////////////////////
     //1.求解插入前能耗(人数的增加导致的运行能耗和启停能耗)
     preTarVal.m_fEnergy = getEnergy(psgVec, elvtVec);
-
     //////////////////////////////////////////////////////////////////////////
     //2.插入运行表项
     insertRunTableItem( reqRunItem );  //插入当前运行表同时更新表的各项目标值
     tarIter = queryElement( m_sRunTable,reqRunItem,tarIter );     //插入操作导致tarInd失效，重新查询
-    
     //////////////////////////////////////////////////////////////////////////
-    //3.求解等待时间
+    //3.求解插入后能耗(人数的增加导致的运行能耗和启停能耗)
+    NextTarVal.m_fEnergy = getEnergy(psgVec, elvtVec);
+    //////////////////////////////////////////////////////////////////////////
+    //4.求解能耗差值
+    tarVal.m_fEnergy = NextTarVal.m_fEnergy - preTarVal.m_fEnergy;
+
+    //////////////////////////////////////////////////////////////////////////
+    //5.求解等待时间
     sRunItemIterator end = m_sRunTable.end();
     for( sRunItemIterator i=m_sRunTable.begin(); i != end; ++i )   
     {
@@ -370,14 +375,6 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfo
     }
 
     //////////////////////////////////////////////////////////////////////////
-    //4.求解插入后能耗(人数的增加导致的运行能耗和启停能耗)
-    NextTarVal.m_fEnergy = getEnergy(psgVec, elvtVec);
-
-    //////////////////////////////////////////////////////////////////////////
-    //5.求解能耗差值
-    tarVal.m_fEnergy = NextTarVal.m_fEnergy - preTarVal.m_fEnergy;
-
-    //////////////////////////////////////////////////////////////////////////
     //6.删除表项
     deleteRunTableItem( reqRunItem );
   }
@@ -385,7 +382,6 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfo
   m_isTrytoDispatch = false;
   return tarVal;     //返回目标值
 }
-
 
 /********************************************************************
 *  @name     : CElevator::getEnergy    
@@ -396,56 +392,40 @@ sTargetVal CElevator::trytoDispatch( sOutRequestIterator reqIter, sPassengerInfo
 ********************************************************************/
 double CElevator::getEnergy( sPassengerInfoVec& psgVec, cElevatorVec& elvtVec )
 {
-  
+  sRunItem preRunItem, nowRunItem;
   sTargetVal tarVal ={0,0};
-  CElevator newElvt = elvtVec.at(m_iElvtID);  //拷贝当前电梯对象
+  CElevator tmpElvt = elvtVec.at(m_iElvtID);  //拷贝当前电梯对象
 
-  sRunItemIterator end   = newElvt.m_sRunTable.end();
-  sRunItemIterator begin = newElvt.m_sRunTable.begin();
+  sRunItemIterator end   = tmpElvt.m_sRunTable.end();
+  sRunItemIterator begin = tmpElvt.m_sRunTable.begin();
 
+  /************************************************************************/
+  /* 1.拷贝当前电梯对象，获取当前运行列表和当前人数
+     2.计算运行列表中上一停靠楼层与下一停靠楼层之间的能耗
+     3.电梯中人数考虑为上高峰模式，即不会有人进入电梯人数不断减少
+  */
+  /************************************************************************/
   for( sRunItemIterator i=begin; i != end; ++i )   
   {
-    /************************************************************************
-    * 1.判断运行列表下一表项的目的楼层
-    * 2.计算到达时间，判断其他电梯是否在达到时间内也到达目的楼层
-    * 3.如果没有其他电梯，计算停靠楼层后，轿厢内乘客数目
-    * 4.计算能耗
-    * 5.循环计算所有表项
-    ************************************************************************/
     if ( i == begin )
     {
-      tarVal.m_fEnergy = i->m_sTarVal.m_fEnergy;        //
+      preRunItem = tmpElvt.m_lastRunItem;
+      nowRunItem = *i;
     }
     else
     {
-      uint16 sameFlrCnt=0, waitPsgNum=0, leavePsgNum=0;
-      cElevatorIterator elvtIterEnd = elvtVec.end();
-
-      for( cElevatorIterator i=elvtVec.begin(); i != elvtIterEnd;  ++i )
-      {
-        if ( newElvt.m_iElvtID != i->m_iElvtID && i->m_iNextStopFlr == newElvt.m_iNextStopFlr )
-        {
-          if ( (i->m_dNextStateTime > newElvt.m_dNextStateTime) && (i->m_dNextStateTime < newElvt.m_dNextStateTime + PSG_ENTER_TIME + OPEN_CLOSE_TIME) )
-            sameFlrCnt++;
-        }
-      }
+      preRunItem = nowRunItem;
+      nowRunItem = *i;
 
       sPassengerIterator psgIterEnd = psgVec.end();
       for( sPassengerIterator j=psgVec.begin(); j != psgIterEnd;  ++j )
       {
-        if ( j->m_iPsgCurFlr == newElvt.m_iNextStopFlr && j->m_ePsgState == PSG_WAIT && j->m_ePsgReqDir == newElvt.m_eRundir )
-          waitPsgNum++;
-        if ( j->m_iPsgDestFlr == newElvt.m_iNextStopFlr && j->m_iCurPlace == newElvt.m_iElvtID && j->m_ePsgState == PSG_TRAVEL  )
-          leavePsgNum++;
+        if ( j->m_iCurPlace == tmpElvt.m_iElvtID && j->m_ePsgState == PSG_TRAVEL && j->m_iPsgDestFlr == nowRunItem.m_iDestFlr )  
+          tmpElvt.m_iCurPsgNum--;
       }
-
-      if ( sameFlrCnt != 0)
-        newElvt.m_iCurPsgNum += waitPsgNum/sameFlrCnt - leavePsgNum;
-      else
-        newElvt.m_iCurPsgNum += waitPsgNum - leavePsgNum;
-
-      tarVal.m_fEnergy;
     }
+
+    tarVal.m_fEnergy += tmpElvt.runfromXtoY( nowRunItem, preRunItem ).m_fEnergy; 
   }
   
   return tarVal.m_fEnergy;
@@ -518,7 +498,7 @@ void CElevator::processReqPsgFlow( sPassengerInfoVec& psgVec )
     //如果乘客处于等待中且当前电梯已经到达停靠
     if ( i->m_ePsgState == PSG_WAIT && i->m_iPsgCurFlr == m_iCurFlr )
     {
-      if ( m_iCurPsgNum <  MAX_INNER_PSG_NUM )
+      if ( m_iCurPsgNum < MAX_INNER_PSG_NUM )
       {
         if ( i->m_ePsgReqDir == m_eRundir || m_eCurState == IDLE )
         {
@@ -587,8 +567,8 @@ sTargetVal CElevator::runfromXtoY(sRunItem x, sRunItem y)
   {
     if ( intervalFlr == 1 )
     {
-      targetVal.m_fWaitTime = ACCELERATE_TIME + DECELERATE_TIME + CONST_SPEED_TIME;
-      targetVal.m_fEnergy   = START_STOP_ENERGY + GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*CONST_SPEED_LENGTH;
+      targetVal.m_fWaitTime = ONE_FLR_ACC_TIME + ONE_FLR_DEC_TIME + ONE_FLR_CST_TIME;
+      targetVal.m_fEnergy   = START_STOP_ENERGY + GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*ONE_FLR_CST_LENGTH;
     }
     else if ( intervalFlr > 1 )
     {
@@ -596,8 +576,8 @@ sTargetVal CElevator::runfromXtoY(sRunItem x, sRunItem y)
       targetVal.m_fWaitTime = (ACCELERATE_TIME + DECELERATE_TIME  +
         (intervalFlr-2)*ONE_FLOOR_TIME + 2*REMAIN_GAP_TIME);
       //能耗包括加减速能耗和载客能耗
-      targetVal.m_fEnergy = (GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*
-        ((intervalFlr-2)*FLOOR_HEIGHT + 2*REMAIN_GAP_LENGTH) +START_STOP_ENERGY);
+      targetVal.m_fEnergy = ( GRAVITY_ACCELERATE*(m_iCurPsgNum*PSG_AVG_WEIGHT+NET_CAR_WEIGHT)*
+                            ( (intervalFlr-2)*FLOOR_HEIGHT + 2*REMAIN_GAP_LENGTH) +START_STOP_ENERGY);
     }  
   }
   else

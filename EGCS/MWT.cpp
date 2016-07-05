@@ -107,6 +107,7 @@ bool CMWT::Core_Main()
   }
   LOGE("Run successfully!\n");
   puts("Run successfully!\n");
+  getchar();
   return true;
 }
 
@@ -152,7 +153,7 @@ cElevatorIterator CMWT::fitness(sOutRequestIterator& reqIter)
   for( cElevatorIterator i=m_elevatorVec.begin(); i != elvtIterEnd;  ++i )
   {
     //如果电梯就在请求所在层且电梯处于待机、人数未满时，之间返回电梯号
-    if ( i->m_iCurFlr == reqIter->m_iReqCurFlr && ELVT_STOP(i->m_eCurState) && i->m_iCurPsgNum < MAX_INNER_PSG_NUM )
+    if ( i->m_iCurFlr == reqIter->m_iReqCurFlr && i->m_eCurState == IDLE && i->m_iCurPsgNum < MAX_INNER_PSG_NUM )
     {
       bestElvtIter = i;
       LOGA( "dispatch:OutReq-CurFlr(%2d)--->Elevator(%d)\n",reqIter->m_iReqCurFlr,bestElvtIter->m_iElvtID);	

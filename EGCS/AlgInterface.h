@@ -43,9 +43,9 @@ typedef vector<sEvent>                  sEventVec;
 typedef vector<sEvent>::iterator        sEventIterator;
 typedef sEvent*                         sEventPtr;
 
-typedef vector<CElevator>             CElevatorVec;
-typedef vector<CElevator>::iterator   CElevatorIterator;
-typedef CElevator*                    CElevatorPtr;
+typedef vector<CElevator>             cElevatorVec;
+typedef vector<CElevator>::iterator   cElevatorIterator;
+typedef CElevator*                    cElevatorPtr;
 
 /*********************************************************************
  * CLASS
@@ -59,7 +59,7 @@ public:
   sOutRequestVec    m_outReqVec;          //外部请求列表
   sPassengerInfoVec m_passengerVec;       //乘客流列表
   sEventVec         m_eventVec;           //时间列表
-  CElevatorVec      m_elevatorVec;        //电梯群列表
+  cElevatorVec      m_elevatorVec;        //电梯群列表
   CTools            m_AlgFile;            //文件操作对象
   FlowType          m_eFlowType;          //交通流类型(上高峰、小高峰、随机)
 
